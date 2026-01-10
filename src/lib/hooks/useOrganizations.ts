@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
-import { useAuth } from './useAuth'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -23,15 +22,29 @@ interface UseOrganizationsReturn {
 }
 
 export function useOrganizations(): UseOrganizationsReturn {
-  const { user } = useAuth()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
+  // Get user on mount
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id ?? null)
+      if (!user) setLoading(false)
+    })
+  }, [supabaseConfigured])
+
   const fetchOrganizations = useCallback(async () => {
-    if (!user || !supabaseConfigured) {
+    if (!userId || !supabaseConfigured) {
       setLoading(false)
       return
     }
@@ -42,7 +55,7 @@ export function useOrganizations(): UseOrganizationsReturn {
     const { data, error: fetchError } = await supabase
       .from('organizations')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (fetchError) {
@@ -51,20 +64,22 @@ export function useOrganizations(): UseOrganizationsReturn {
       setOrganizations(data || [])
     }
     setLoading(false)
-  }, [user, supabaseConfigured])
+  }, [userId, supabaseConfigured])
 
   useEffect(() => {
-    fetchOrganizations()
-  }, [fetchOrganizations])
+    if (userId) {
+      fetchOrganizations()
+    }
+  }, [userId, fetchOrganizations])
 
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
-    if (!user || !supabaseConfigured) return null
+    if (!userId || !supabaseConfigured) return null
     setError(null)
 
     const supabase = createClient()
     const { data, error: createError } = await supabase
       .from('organizations')
-      .insert({ ...org, user_id: user.id })
+      .insert({ ...org, user_id: userId })
       .select()
       .single()
 

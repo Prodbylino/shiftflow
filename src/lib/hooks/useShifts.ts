@@ -36,6 +36,11 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
+  // Stabilize options to prevent infinite loops
+  const startDateStr = options?.startDate?.toISOString()
+  const endDateStr = options?.endDate?.toISOString()
+  const organizationId = options?.organizationId
+
   const fetchShifts = useCallback(async () => {
     if (!user || !supabaseConfigured) {
       setLoading(false)
@@ -54,14 +59,14 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       .eq('user_id', user.id)
       .order('date', { ascending: true })
 
-    if (options?.startDate) {
-      query = query.gte('date', options.startDate.toISOString().split('T')[0])
+    if (startDateStr) {
+      query = query.gte('date', startDateStr.split('T')[0])
     }
-    if (options?.endDate) {
-      query = query.lte('date', options.endDate.toISOString().split('T')[0])
+    if (endDateStr) {
+      query = query.lte('date', endDateStr.split('T')[0])
     }
-    if (options?.organizationId) {
-      query = query.eq('organization_id', options.organizationId)
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
     }
 
     const { data, error: fetchError } = await query
@@ -72,7 +77,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       setShifts((data || []) as ShiftWithOrganization[])
     }
     setLoading(false)
-  }, [user, supabaseConfigured, options?.startDate, options?.endDate, options?.organizationId])
+  }, [user, supabaseConfigured, startDateStr, endDateStr, organizationId])
 
   useEffect(() => {
     fetchShifts()
