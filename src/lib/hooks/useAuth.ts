@@ -66,11 +66,14 @@ export function useAuth(): UseAuthReturn {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id, supabase)
-        } else {
-          setProfile(null)
+        // Only update state on actual sign in/out events, ignore token refresh
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          setUser(session?.user ?? null)
+          if (session?.user) {
+            await fetchProfile(session.user.id, supabase)
+          } else {
+            setProfile(null)
+          }
         }
       }
     )
