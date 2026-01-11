@@ -60,6 +60,15 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
     let cancelled = false
 
+    // Timeout protection
+    const timeout = setTimeout(() => {
+      if (!cancelled && !initialLoadDone) {
+        console.warn('Shifts loading timeout')
+        setLoading(false)
+        initialLoadDone = true
+      }
+    }, 8000)
+
     const loadData = async () => {
       const supabase = createClient()
 
@@ -74,6 +83,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           setUserId(null)
           setLoading(false)
           initialLoadDone = true
+          clearTimeout(timeout)
           return
         }
 
@@ -112,9 +122,11 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         }
       } catch (err) {
         if (cancelled) return
+        console.error('Shifts load error:', err)
         setError('Failed to load shifts')
       } finally {
         if (!cancelled) {
+          clearTimeout(timeout)
           setLoading(false)
           initialLoadDone = true
         }

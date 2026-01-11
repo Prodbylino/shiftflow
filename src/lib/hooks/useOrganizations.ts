@@ -49,6 +49,15 @@ export function useOrganizations(): UseOrganizationsReturn {
 
     let cancelled = false
 
+    // Timeout protection
+    const timeout = setTimeout(() => {
+      if (!cancelled && !initialLoadDone) {
+        console.warn('Organizations loading timeout')
+        setLoading(false)
+        initialLoadDone = true
+      }
+    }, 8000)
+
     const loadData = async () => {
       const supabase = createClient()
 
@@ -63,6 +72,7 @@ export function useOrganizations(): UseOrganizationsReturn {
           setUserId(null)
           setLoading(false)
           initialLoadDone = true
+          clearTimeout(timeout)
           return
         }
 
@@ -86,9 +96,11 @@ export function useOrganizations(): UseOrganizationsReturn {
         }
       } catch (err) {
         if (cancelled) return
+        console.error('Organizations load error:', err)
         setError('Failed to load organizations')
       } finally {
         if (!cancelled) {
+          clearTimeout(timeout)
           setLoading(false)
           initialLoadDone = true
         }
