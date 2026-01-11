@@ -40,7 +40,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
-  // Get user on mount
+  // Stabilize options to prevent infinite loops
+  const startDateStr = options?.startDate?.toISOString()
+  const endDateStr = options?.endDate?.toISOString()
+  const organizationId = options?.organizationId
+
+  // Combined user fetch and data fetch to prevent race conditions
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
@@ -48,41 +53,82 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       return
     }
 
-    // Skip if already initialized
+    // Skip if already initialized - use cached data
     if (initialLoadDone) {
       return
     }
 
-    const supabase = createClient()
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => {
-        cachedUserId = user?.id ?? null
-        setUserId(user?.id ?? null)
+    let cancelled = false
+
+    const loadData = async () => {
+      const supabase = createClient()
+
+      try {
+        // Get user first
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (cancelled) return
+
         if (!user) {
+          cachedUserId = null
+          setUserId(null)
+          setLoading(false)
+          initialLoadDone = true
+          return
+        }
+
+        cachedUserId = user.id
+        setUserId(user.id)
+
+        // Fetch shifts immediately after getting user
+        let query = supabase
+          .from('shifts')
+          .select(`
+            *,
+            organization:organizations(*)
+          `)
+          .eq('user_id', user.id)
+          .order('date', { ascending: true })
+
+        if (startDateStr) {
+          query = query.gte('date', startDateStr.split('T')[0])
+        }
+        if (endDateStr) {
+          query = query.lte('date', endDateStr.split('T')[0])
+        }
+        if (organizationId) {
+          query = query.eq('organization_id', organizationId)
+        }
+
+        const { data, error: fetchError } = await query
+
+        if (cancelled) return
+
+        if (fetchError) {
+          setError(fetchError.message)
+        } else {
+          cachedShifts = (data || []) as ShiftWithOrganization[]
+          setShifts(cachedShifts)
+        }
+      } catch (err) {
+        if (cancelled) return
+        setError('Failed to load shifts')
+      } finally {
+        if (!cancelled) {
           setLoading(false)
           initialLoadDone = true
         }
-      })
-      .catch(() => {
-        // Handle auth errors gracefully
-        setLoading(false)
-        initialLoadDone = true
-      })
-  }, [supabaseConfigured])
+      }
+    }
 
-  // Stabilize options to prevent infinite loops
-  const startDateStr = options?.startDate?.toISOString()
-  const endDateStr = options?.endDate?.toISOString()
-  const organizationId = options?.organizationId
+    loadData()
+
+    return () => { cancelled = true }
+  }, [supabaseConfigured, startDateStr, endDateStr, organizationId])
 
   const fetchShifts = useCallback(async () => {
     if (!userId || !supabaseConfigured) {
-      setLoading(false)
       return
-    }
-    // Only show loading on first load, not on refetch
-    if (!initialLoadDone) {
-      setLoading(true)
     }
     setError(null)
 
@@ -117,17 +163,8 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       }
     } catch (err) {
       setError('Failed to fetch shifts')
-    } finally {
-      setLoading(false)
-      initialLoadDone = true
     }
   }, [userId, supabaseConfigured, startDateStr, endDateStr, organizationId])
-
-  useEffect(() => {
-    if (userId) {
-      fetchShifts()
-    }
-  }, [userId, fetchShifts])
 
   const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
     if (!userId || !supabaseConfigured) return null

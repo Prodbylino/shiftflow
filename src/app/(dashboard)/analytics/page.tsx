@@ -85,13 +85,24 @@ export default function AnalyticsPage() {
       })
     }
 
-    // Calculate hours for each shift
+    // Calculate hours for each shift (accounting for multi-day shifts)
     const calculateHours = (shift: typeof shifts[0]) => {
       const [startH, startM] = shift.start_time.split(':').map(Number)
       const [endH, endM] = shift.end_time.split(':').map(Number)
-      let diff = (endH * 60 + endM) - (startH * 60 + startM)
-      if (diff < 0) diff += 24 * 60 // Handle overnight shifts
-      return diff / 60
+
+      // If we have an end_date that's different from start date, calculate properly
+      if (shift.end_date && shift.end_date !== shift.date) {
+        const startDate = new Date(shift.date)
+        const endDate = new Date(shift.end_date)
+        startDate.setHours(startH, startM, 0, 0)
+        endDate.setHours(endH, endM, 0, 0)
+        return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+      }
+
+      // Same day shift
+      const startMinutes = startH * 60 + startM
+      const endMinutes = endH * 60 + endM
+      return (endMinutes - startMinutes) / 60
     }
 
     const totalShifts = filteredShifts.length
@@ -125,18 +136,17 @@ export default function AnalyticsPage() {
     // Calculate avg hours per week based on actual weeks in period
     let weeksInPeriod = 1
     if (period === 'month') {
-      // Calculate weeks elapsed in current month
-      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-      const currentDay = Math.min(now.getDate(), daysInMonth)
-      weeksInPeriod = Math.max(1, Math.ceil(currentDay / 7))
+      // Use fractional weeks for more accurate calculation
+      const currentDay = now.getDate()
+      weeksInPeriod = Math.max(1, currentDay / 7)
     } else if (period === 'week') {
       weeksInPeriod = 1
     } else if (period === 'fy') {
-      // Weeks elapsed in current FY
+      // Weeks elapsed in current FY (fractional)
       const fyStartYear = currentMonth >= 6 ? currentYear : currentYear - 1
       const fyStart = new Date(fyStartYear, 6, 1)
       const daysSinceFyStart = Math.floor((now.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24))
-      weeksInPeriod = Math.max(1, Math.ceil(daysSinceFyStart / 7))
+      weeksInPeriod = Math.max(1, daysSinceFyStart / 7)
     }
 
     return {
@@ -164,21 +174,32 @@ export default function AnalyticsPage() {
       return shiftDate >= fyStart && shiftDate <= fyEnd
     })
 
-    // Calculate hours for each shift
+    // Calculate hours for each shift (accounting for multi-day shifts)
     const calculateHours = (shift: typeof shifts[0]) => {
       const [startH, startM] = shift.start_time.split(':').map(Number)
       const [endH, endM] = shift.end_time.split(':').map(Number)
-      let diff = (endH * 60 + endM) - (startH * 60 + startM)
-      if (diff < 0) diff += 24 * 60 // Handle overnight shifts
-      return diff / 60
+
+      // If we have an end_date that's different from start date, calculate properly
+      if (shift.end_date && shift.end_date !== shift.date) {
+        const startDate = new Date(shift.date)
+        const endDate = new Date(shift.end_date)
+        startDate.setHours(startH, startM, 0, 0)
+        endDate.setHours(endH, endM, 0, 0)
+        return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+      }
+
+      // Same day shift
+      const startMinutes = startH * 60 + startM
+      const endMinutes = endH * 60 + endM
+      return (endMinutes - startMinutes) / 60
     }
 
     const totalShifts = fyShifts.length
     const totalHours = fyShifts.reduce((sum, s) => sum + calculateHours(s), 0)
 
-    // Calculate weeks elapsed in current FY
+    // Calculate weeks elapsed in current FY (fractional for accuracy)
     const daysSinceFyStart = Math.floor((now.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24))
-    const weeksElapsed = Math.max(1, Math.ceil(daysSinceFyStart / 7))
+    const weeksElapsed = Math.max(1, daysSinceFyStart / 7)
 
     return {
       totalShifts,
@@ -204,9 +225,20 @@ export default function AnalyticsPage() {
       const hours = monthShifts.reduce((sum, s) => {
         const [startH, startM] = s.start_time.split(':').map(Number)
         const [endH, endM] = s.end_time.split(':').map(Number)
-        let diff = (endH * 60 + endM) - (startH * 60 + startM)
-        if (diff < 0) diff += 24 * 60 // Handle overnight shifts
-        return sum + diff / 60
+
+        // If we have an end_date that's different from start date, calculate properly
+        if (s.end_date && s.end_date !== s.date) {
+          const startDate = new Date(s.date)
+          const endDate = new Date(s.end_date)
+          startDate.setHours(startH, startM, 0, 0)
+          endDate.setHours(endH, endM, 0, 0)
+          return sum + (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+        }
+
+        // Same day shift
+        const startMinutes = startH * 60 + startM
+        const endMinutes = endH * 60 + endM
+        return sum + (endMinutes - startMinutes) / 60
       }, 0)
 
       data.push({

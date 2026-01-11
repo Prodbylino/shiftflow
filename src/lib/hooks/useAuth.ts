@@ -34,13 +34,19 @@ export function useAuth(): UseAuthReturn {
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
   const fetchProfile = useCallback(async (userId: string, supabase: ReturnType<typeof createClient>) => {
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    cachedProfile = profileData
-    setProfile(profileData)
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      cachedProfile = profileData
+      setProfile(profileData)
+    } catch (err) {
+      // Profile fetch failed, continue without profile
+      cachedProfile = null
+      setProfile(null)
+    }
   }, [])
 
   const refreshProfile = useCallback(async () => {
@@ -58,34 +64,52 @@ export function useAuth(): UseAuthReturn {
       return
     }
 
-    // Skip if already loaded - use cached data
-    if (initialLoadDone) {
-      return
-    }
-
     const supabase = createClient()
+    let timeout: NodeJS.Timeout
 
-    const getSession = async () => {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        cachedUser = authUser
-        setUser(authUser)
-
-        if (authUser) {
-          await fetchProfile(authUser.id, supabase)
+    // Only fetch session on initial load
+    if (!initialLoadDone) {
+      // Safety timeout to prevent infinite loading
+      timeout = setTimeout(() => {
+        if (!initialLoadDone) {
+          console.warn('Auth timeout - forcing loading to false')
+          setLoading(false)
+          initialLoadDone = true
         }
-      } catch (err) {
-        // Handle auth errors gracefully
-        cachedUser = null
-        setUser(null)
-      } finally {
-        setLoading(false)
-        initialLoadDone = true
+      }, 10000) // 10 second timeout
+
+      const getSession = async () => {
+        try {
+          const { data: { user: authUser }, error } = await supabase.auth.getUser()
+
+          if (error) {
+            console.error('Auth error:', error)
+            cachedUser = null
+            setUser(null)
+          } else {
+            cachedUser = authUser
+            setUser(authUser)
+
+            if (authUser) {
+              await fetchProfile(authUser.id, supabase)
+            }
+          }
+        } catch (err) {
+          // Handle auth errors gracefully
+          console.error('Unexpected auth error:', err)
+          cachedUser = null
+          setUser(null)
+        } finally {
+          clearTimeout(timeout)
+          setLoading(false)
+          initialLoadDone = true
+        }
       }
+
+      getSession()
     }
 
-    getSession()
-
+    // Always subscribe to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         // Only update state on actual sign in/out events, ignore token refresh
@@ -102,7 +126,10 @@ export function useAuth(): UseAuthReturn {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (timeout) clearTimeout(timeout)
+    }
   }, [supabaseConfigured, fetchProfile])
 
   const signOut = async () => {

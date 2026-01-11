@@ -34,7 +34,7 @@ export function useOrganizations(): UseOrganizationsReturn {
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
-  // Get user on mount
+  // Combined user fetch and data fetch to prevent race conditions
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
@@ -42,36 +42,67 @@ export function useOrganizations(): UseOrganizationsReturn {
       return
     }
 
-    // Skip if already initialized
+    // Skip if already initialized - use cached data
     if (initialLoadDone) {
       return
     }
 
-    const supabase = createClient()
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => {
-        cachedUserId = user?.id ?? null
-        setUserId(user?.id ?? null)
+    let cancelled = false
+
+    const loadData = async () => {
+      const supabase = createClient()
+
+      try {
+        // Get user first
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (cancelled) return
+
         if (!user) {
+          cachedUserId = null
+          setUserId(null)
+          setLoading(false)
+          initialLoadDone = true
+          return
+        }
+
+        cachedUserId = user.id
+        setUserId(user.id)
+
+        // Fetch organizations immediately after getting user
+        const { data, error: fetchError } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (cancelled) return
+
+        if (fetchError) {
+          setError(fetchError.message)
+        } else {
+          cachedOrganizations = data || []
+          setOrganizations(data || [])
+        }
+      } catch (err) {
+        if (cancelled) return
+        setError('Failed to load organizations')
+      } finally {
+        if (!cancelled) {
           setLoading(false)
           initialLoadDone = true
         }
-      })
-      .catch(() => {
-        // Handle auth errors gracefully
-        setLoading(false)
-        initialLoadDone = true
-      })
+      }
+    }
+
+    loadData()
+
+    return () => { cancelled = true }
   }, [supabaseConfigured])
 
   const fetchOrganizations = useCallback(async () => {
     if (!userId || !supabaseConfigured) {
-      setLoading(false)
       return
-    }
-    // Only show loading on first load, not on refetch
-    if (!initialLoadDone) {
-      setLoading(true)
     }
     setError(null)
 
@@ -91,17 +122,8 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     } catch (err) {
       setError('Failed to fetch organizations')
-    } finally {
-      setLoading(false)
-      initialLoadDone = true
     }
   }, [userId, supabaseConfigured])
-
-  useEffect(() => {
-    if (userId) {
-      fetchOrganizations()
-    }
-  }, [userId, fetchOrganizations])
 
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
     if (!userId || !supabaseConfigured) return null
