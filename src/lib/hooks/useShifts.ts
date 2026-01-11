@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/database'
-import { useAuth } from './useAuth'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -11,6 +10,11 @@ const isSupabaseConfigured = () => {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
+
+// Module-level cache
+let cachedShifts: ShiftWithOrganization[] = []
+let cachedUserId: string | null = null
+let initialLoadDone = false
 
 interface UseShiftsOptions {
   startDate?: Date
@@ -29,12 +33,42 @@ interface UseShiftsReturn {
 }
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
-  const { user } = useAuth()
-  const [shifts, setShifts] = useState<ShiftWithOrganization[]>([])
-  const [loading, setLoading] = useState(true)
+  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(cachedShifts)
+  const [loading, setLoading] = useState(!initialLoadDone)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(cachedUserId)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
+
+  // Get user on mount
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      setLoading(false)
+      initialLoadDone = true
+      return
+    }
+
+    // Skip if already initialized
+    if (initialLoadDone) {
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        cachedUserId = user?.id ?? null
+        setUserId(user?.id ?? null)
+        if (!user) {
+          setLoading(false)
+          initialLoadDone = true
+        }
+      })
+      .catch(() => {
+        // Handle auth errors gracefully
+        setLoading(false)
+        initialLoadDone = true
+      })
+  }, [supabaseConfigured])
 
   // Stabilize options to prevent infinite loops
   const startDateStr = options?.startDate?.toISOString()
@@ -42,55 +76,67 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const organizationId = options?.organizationId
 
   const fetchShifts = useCallback(async () => {
-    if (!user || !supabaseConfigured) {
+    if (!userId || !supabaseConfigured) {
       setLoading(false)
       return
     }
-    setLoading(true)
+    // Only show loading on first load, not on refetch
+    if (!initialLoadDone) {
+      setLoading(true)
+    }
     setError(null)
 
-    const supabase = createClient()
-    let query = supabase
-      .from('shifts')
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .eq('user_id', user.id)
-      .order('date', { ascending: true })
+    try {
+      const supabase = createClient()
+      let query = supabase
+        .from('shifts')
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
+        .eq('user_id', userId)
+        .order('date', { ascending: true })
 
-    if (startDateStr) {
-      query = query.gte('date', startDateStr.split('T')[0])
-    }
-    if (endDateStr) {
-      query = query.lte('date', endDateStr.split('T')[0])
-    }
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId)
-    }
+      if (startDateStr) {
+        query = query.gte('date', startDateStr.split('T')[0])
+      }
+      if (endDateStr) {
+        query = query.lte('date', endDateStr.split('T')[0])
+      }
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
 
-    const { data, error: fetchError } = await query
+      const { data, error: fetchError } = await query
 
-    if (fetchError) {
-      setError(fetchError.message)
-    } else {
-      setShifts((data || []) as ShiftWithOrganization[])
+      if (fetchError) {
+        setError(fetchError.message)
+      } else {
+        cachedShifts = (data || []) as ShiftWithOrganization[]
+        setShifts(cachedShifts)
+      }
+    } catch (err) {
+      setError('Failed to fetch shifts')
+    } finally {
+      setLoading(false)
+      initialLoadDone = true
     }
-    setLoading(false)
-  }, [user, supabaseConfigured, startDateStr, endDateStr, organizationId])
+  }, [userId, supabaseConfigured, startDateStr, endDateStr, organizationId])
 
   useEffect(() => {
-    fetchShifts()
-  }, [fetchShifts])
+    if (userId) {
+      fetchShifts()
+    }
+  }, [userId, fetchShifts])
 
   const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
-    if (!user || !supabaseConfigured) return null
+    if (!userId || !supabaseConfigured) return null
     setError(null)
 
     const supabase = createClient()
     const { data, error: createError } = await supabase
       .from('shifts')
-      .insert({ ...shift, user_id: user.id })
+      .insert({ ...shift, user_id: userId })
       .select(`
         *,
         organization:organizations(*)

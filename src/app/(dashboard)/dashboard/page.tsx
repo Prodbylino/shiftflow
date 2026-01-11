@@ -92,25 +92,25 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shrink-0">
-        <div className="px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            {/* Organization Legend */}
+        <div className="px-3 md:px-6 h-14 md:h-16 flex items-center justify-between">
+          {/* Organization Legend - scrollable on mobile */}
+          <div className="flex items-center gap-3 md:gap-8 overflow-x-auto flex-1 mr-2 scrollbar-hide">
             {calendarOrganizations.map((org) => (
-              <div key={org.id} className="flex items-center gap-2">
+              <div key={org.id} className="flex items-center gap-1.5 md:gap-2 shrink-0">
                 <div
-                  className="w-5 h-5 rounded-full"
+                  className="w-4 h-4 md:w-5 md:h-5 rounded-full"
                   style={{ backgroundColor: org.color }}
                 />
-                <span className="text-lg font-medium text-gray-700">{org.name}</span>
-                <span className="text-gray-500">${org.hourlyRate}/h</span>
+                <span className="text-sm md:text-lg font-medium text-gray-700 whitespace-nowrap">{org.name}</span>
+                <span className="text-xs md:text-base text-gray-500 whitespace-nowrap">${org.hourlyRate}/h</span>
               </div>
             ))}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <LanguageSwitch />
             <UserMenu user={user} onLogout={signOut} />
           </div>
@@ -118,8 +118,8 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content - Calendar fills remaining space */}
-      <main className="flex-1 p-4 overflow-hidden">
-        <div className="bg-white rounded-2xl p-6 shadow-sm h-full">
+      <main className="flex-1 p-2 md:p-4 overflow-auto">
+        <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-sm min-h-[calc(100vh-8rem)]">
           <MonthCalendar
             shifts={calendarShifts}
             organizations={calendarOrganizations}

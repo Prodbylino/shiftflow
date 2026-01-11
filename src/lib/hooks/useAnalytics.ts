@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from './useAuth'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -40,20 +39,37 @@ interface UseAnalyticsReturn {
 }
 
 export function useAnalytics(): UseAnalyticsReturn {
-  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
+  // Get user on mount
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        setUserId(user?.id ?? null)
+      })
+      .catch(() => {
+        // Handle auth errors gracefully
+        setUserId(null)
+      })
+  }, [supabaseConfigured])
+
   const getMonthlySummary = useCallback(async (year: number, month: number): Promise<MonthlySummary[]> => {
-    if (!user || !supabaseConfigured) return []
+    if (!userId || !supabaseConfigured) return []
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
     const { data, error: rpcError } = await supabase.rpc('get_monthly_summary', {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_year: year,
       p_month: month,
     })
@@ -64,16 +80,16 @@ export function useAnalytics(): UseAnalyticsReturn {
       return []
     }
     return data || []
-  }, [user, supabaseConfigured])
+  }, [userId, supabaseConfigured])
 
   const getFinancialYearSummary = useCallback(async (fyStartYear: number): Promise<MonthlySummary[]> => {
-    if (!user || !supabaseConfigured) return []
+    if (!userId || !supabaseConfigured) return []
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
     const { data, error: rpcError } = await supabase.rpc('get_financial_year_summary', {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_fy_start_year: fyStartYear,
     })
 
@@ -83,16 +99,16 @@ export function useAnalytics(): UseAnalyticsReturn {
       return []
     }
     return data || []
-  }, [user, supabaseConfigured])
+  }, [userId, supabaseConfigured])
 
   const getShiftsByFinancialYear = useCallback(async (fyStartYear: number): Promise<FinancialYearShift[]> => {
-    if (!user || !supabaseConfigured) return []
+    if (!userId || !supabaseConfigured) return []
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
     const { data, error: rpcError } = await supabase.rpc('get_shifts_by_financial_year', {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_fy_start_year: fyStartYear,
     })
 
@@ -102,7 +118,7 @@ export function useAnalytics(): UseAnalyticsReturn {
       return []
     }
     return data || []
-  }, [user, supabaseConfigured])
+  }, [userId, supabaseConfigured])
 
   return {
     loading,

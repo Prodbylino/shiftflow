@@ -11,6 +11,11 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
+// Module-level cache
+let cachedOrganizations: Organization[] = []
+let cachedUserId: string | null = null
+let initialLoadDone = false
+
 interface UseOrganizationsReturn {
   organizations: Organization[]
   loading: boolean
@@ -22,10 +27,10 @@ interface UseOrganizationsReturn {
 }
 
 export function useOrganizations(): UseOrganizationsReturn {
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [loading, setLoading] = useState(true)
+  const [organizations, setOrganizations] = useState<Organization[]>(cachedOrganizations)
+  const [loading, setLoading] = useState(!initialLoadDone)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(cachedUserId)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -33,14 +38,30 @@ export function useOrganizations(): UseOrganizationsReturn {
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
+      initialLoadDone = true
+      return
+    }
+
+    // Skip if already initialized
+    if (initialLoadDone) {
       return
     }
 
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id ?? null)
-      if (!user) setLoading(false)
-    })
+    supabase.auth.getUser()
+      .then(({ data: { user } }) => {
+        cachedUserId = user?.id ?? null
+        setUserId(user?.id ?? null)
+        if (!user) {
+          setLoading(false)
+          initialLoadDone = true
+        }
+      })
+      .catch(() => {
+        // Handle auth errors gracefully
+        setLoading(false)
+        initialLoadDone = true
+      })
   }, [supabaseConfigured])
 
   const fetchOrganizations = useCallback(async () => {
@@ -48,22 +69,32 @@ export function useOrganizations(): UseOrganizationsReturn {
       setLoading(false)
       return
     }
-    setLoading(true)
+    // Only show loading on first load, not on refetch
+    if (!initialLoadDone) {
+      setLoading(true)
+    }
     setError(null)
 
-    const supabase = createClient()
-    const { data, error: fetchError } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+    try {
+      const supabase = createClient()
+      const { data, error: fetchError } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
 
-    if (fetchError) {
-      setError(fetchError.message)
-    } else {
-      setOrganizations(data || [])
+      if (fetchError) {
+        setError(fetchError.message)
+      } else {
+        cachedOrganizations = data || []
+        setOrganizations(data || [])
+      }
+    } catch (err) {
+      setError('Failed to fetch organizations')
+    } finally {
+      setLoading(false)
+      initialLoadDone = true
     }
-    setLoading(false)
   }, [userId, supabaseConfigured])
 
   useEffect(() => {

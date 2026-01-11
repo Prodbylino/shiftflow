@@ -12,6 +12,11 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
+// Module-level cache to persist across component remounts
+let cachedUser: User | null = null
+let cachedProfile: Profile | null = null
+let initialLoadDone = false
+
 interface UseAuthReturn {
   user: User | null
   profile: Profile | null
@@ -21,9 +26,10 @@ interface UseAuthReturn {
 }
 
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Initialize with cached values if available
+  const [user, setUser] = useState<User | null>(cachedUser)
+  const [profile, setProfile] = useState<Profile | null>(cachedProfile)
+  const [loading, setLoading] = useState(!initialLoadDone)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -33,6 +39,7 @@ export function useAuth(): UseAuthReturn {
       .select('*')
       .eq('id', userId)
       .single()
+    cachedProfile = profileData
     setProfile(profileData)
   }, [])
 
@@ -47,19 +54,34 @@ export function useAuth(): UseAuthReturn {
     // If Supabase is not configured, just set loading to false
     if (!supabaseConfigured) {
       setLoading(false)
+      initialLoadDone = true
+      return
+    }
+
+    // Skip if already loaded - use cached data
+    if (initialLoadDone) {
       return
     }
 
     const supabase = createClient()
 
     const getSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        cachedUser = authUser
+        setUser(authUser)
 
-      if (user) {
-        await fetchProfile(user.id, supabase)
+        if (authUser) {
+          await fetchProfile(authUser.id, supabase)
+        }
+      } catch (err) {
+        // Handle auth errors gracefully
+        cachedUser = null
+        setUser(null)
+      } finally {
+        setLoading(false)
+        initialLoadDone = true
       }
-      setLoading(false)
     }
 
     getSession()
@@ -68,10 +90,12 @@ export function useAuth(): UseAuthReturn {
       async (event, session) => {
         // Only update state on actual sign in/out events, ignore token refresh
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          cachedUser = session?.user ?? null
           setUser(session?.user ?? null)
           if (session?.user) {
             await fetchProfile(session.user.id, supabase)
           } else {
+            cachedProfile = null
             setProfile(null)
           }
         }

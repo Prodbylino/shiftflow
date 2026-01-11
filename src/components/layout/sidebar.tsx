@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -46,7 +47,12 @@ const navItems = [
   },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const { profile, signOut, loading } = useAuth()
 
@@ -57,8 +63,15 @@ export function Sidebar() {
     .toUpperCase()
     .slice(0, 2) || 'U'
 
-  return (
-    <aside className="w-72 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+  const handleNavClick = () => {
+    // Close mobile menu when navigating
+    if (onMobileClose) {
+      onMobileClose()
+    }
+  }
+
+  const sidebarContent = (
+    <>
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
@@ -78,6 +91,7 @@ export function Sidebar() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={handleNavClick}
             className={cn(
               'flex items-center gap-4 px-4 py-4 rounded-xl text-xl font-medium transition-colors',
               pathname === item.href
@@ -119,6 +133,74 @@ export function Sidebar() {
           Sign Out
         </Button>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar - hidden on mobile */}
+      <aside className="hidden md:flex w-72 bg-white border-r border-gray-200 min-h-screen flex-col">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-72 bg-white flex flex-col transform transition-transform duration-300 ease-in-out md:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Close button */}
+        <button
+          onClick={onMobileClose}
+          className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700"
+          aria-label="Close menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        {sidebarContent}
+      </aside>
+    </>
+  )
+}
+
+// Mobile header with hamburger menu
+export function MobileHeader({ onMenuClick }: { onMenuClick: () => void }) {
+  return (
+    <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-30">
+      <button
+        onClick={onMenuClick}
+        className="p-2 text-gray-600 hover:text-gray-900 -ml-2"
+        aria-label="Open menu"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <div className="flex items-center gap-2">
+        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </div>
+        <span className="text-xl font-bold text-gray-900 font-display">ShiftFlow</span>
+      </div>
+    </div>
   )
 }

@@ -56,45 +56,137 @@ export default function AnalyticsPage() {
     fetchData()
   }, [period, getMonthlySummary, getFinancialYearSummary])
 
-  // Calculate totals from data
+  // Calculate totals directly from shifts data for accuracy
   const totals = useMemo(() => {
-    const data = period === 'fy' ? fyData : summaryData
-    const totalShifts = data.reduce((sum, d) => sum + d.shift_count, 0)
-    const totalHours = data.reduce((sum, d) => sum + Number(d.total_hours), 0)
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
 
-    const orgsWithPercentage = data.map(d => ({
-      name: d.organization_name,
-      color: d.organization_color,
-      shifts: d.shift_count,
-      hours: Number(d.total_hours),
-      percentage: totalHours > 0 ? Math.round((Number(d.total_hours) / totalHours) * 100) : 0,
+    // Filter shifts based on period
+    let filteredShifts = shifts
+    if (period === 'month') {
+      filteredShifts = shifts.filter(s => {
+        const shiftDate = new Date(s.date)
+        return shiftDate.getMonth() === currentMonth && shiftDate.getFullYear() === currentYear
+      })
+    } else if (period === 'week') {
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - now.getDay()) // Start of week (Sunday)
+      weekStart.setHours(0, 0, 0, 0)
+      filteredShifts = shifts.filter(s => new Date(s.date) >= weekStart)
+    } else if (period === 'fy') {
+      // Australian FY: July 1 to June 30
+      const fyStartYear = currentMonth >= 6 ? currentYear : currentYear - 1
+      const fyStart = new Date(fyStartYear, 6, 1) // July 1
+      const fyEnd = new Date(fyStartYear + 1, 5, 30, 23, 59, 59) // June 30
+      filteredShifts = shifts.filter(s => {
+        const shiftDate = new Date(s.date)
+        return shiftDate >= fyStart && shiftDate <= fyEnd
+      })
+    }
+
+    // Calculate hours for each shift
+    const calculateHours = (shift: typeof shifts[0]) => {
+      const [startH, startM] = shift.start_time.split(':').map(Number)
+      const [endH, endM] = shift.end_time.split(':').map(Number)
+      let diff = (endH * 60 + endM) - (startH * 60 + startM)
+      if (diff < 0) diff += 24 * 60 // Handle overnight shifts
+      return diff / 60
+    }
+
+    const totalShifts = filteredShifts.length
+    const totalHours = filteredShifts.reduce((sum, s) => sum + calculateHours(s), 0)
+
+    // Group by organization
+    const orgMap = new Map<string, { name: string; color: string; shifts: number; hours: number }>()
+    filteredShifts.forEach(shift => {
+      const org = shift.organization
+      if (org) {
+        const existing = orgMap.get(org.id) || { name: org.name, color: org.color, shifts: 0, hours: 0 }
+        existing.shifts += 1
+        existing.hours += calculateHours(shift)
+        orgMap.set(org.id, existing)
+      }
+    })
+
+    const orgsWithPercentage = Array.from(orgMap.values()).map(org => ({
+      ...org,
+      hours: Math.round(org.hours * 10) / 10, // Round to 1 decimal
+      percentage: totalHours > 0 ? Math.round((org.hours / totalHours) * 100) : 0,
     }))
 
-    // Calculate average earnings based on organizations' hourly rates
-    const avgEarnings = orgsWithPercentage.reduce((sum, org) => {
-      const orgData = organizations.find(o => o.name === org.name)
-      return sum + (org.hours * (orgData?.hourly_rate || 0))
+    // Calculate earnings based on organizations' hourly rates
+    const totalEarnings = filteredShifts.reduce((sum, shift) => {
+      const hours = calculateHours(shift)
+      const rate = shift.organization?.hourly_rate || 0
+      return sum + (hours * rate)
     }, 0)
 
+    // Calculate avg hours per week based on actual weeks in period
+    let weeksInPeriod = 1
+    if (period === 'month') {
+      // Calculate weeks elapsed in current month
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+      const currentDay = Math.min(now.getDate(), daysInMonth)
+      weeksInPeriod = Math.max(1, Math.ceil(currentDay / 7))
+    } else if (period === 'week') {
+      weeksInPeriod = 1
+    } else if (period === 'fy') {
+      // Weeks elapsed in current FY
+      const fyStartYear = currentMonth >= 6 ? currentYear : currentYear - 1
+      const fyStart = new Date(fyStartYear, 6, 1)
+      const daysSinceFyStart = Math.floor((now.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24))
+      weeksInPeriod = Math.max(1, Math.ceil(daysSinceFyStart / 7))
+    }
+
     return {
       totalShifts,
-      totalHours: Math.round(totalHours),
-      avgHoursPerWeek: Math.round(totalHours / 4), // Approximate
-      avgEarningPerMonth: Math.round(avgEarnings),
+      totalHours: Math.round(totalHours * 10) / 10,
+      avgHoursPerWeek: Math.round(totalHours / weeksInPeriod),
+      avgEarningPerMonth: Math.round(totalEarnings),
       organizations: orgsWithPercentage,
     }
-  }, [summaryData, fyData, period, organizations])
+  }, [shifts, period])
 
-  // Calculate FY totals
+  // Calculate FY totals directly from shifts
   const fyTotals = useMemo(() => {
-    const totalShifts = fyData.reduce((sum, d) => sum + d.shift_count, 0)
-    const totalHours = fyData.reduce((sum, d) => sum + Number(d.total_hours), 0)
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    // Australian FY: July 1 to June 30
+    const fyStartYear = currentMonth >= 6 ? currentYear : currentYear - 1
+    const fyStart = new Date(fyStartYear, 6, 1) // July 1
+    const fyEnd = new Date(fyStartYear + 1, 5, 30, 23, 59, 59) // June 30
+
+    const fyShifts = shifts.filter(s => {
+      const shiftDate = new Date(s.date)
+      return shiftDate >= fyStart && shiftDate <= fyEnd
+    })
+
+    // Calculate hours for each shift
+    const calculateHours = (shift: typeof shifts[0]) => {
+      const [startH, startM] = shift.start_time.split(':').map(Number)
+      const [endH, endM] = shift.end_time.split(':').map(Number)
+      let diff = (endH * 60 + endM) - (startH * 60 + startM)
+      if (diff < 0) diff += 24 * 60 // Handle overnight shifts
+      return diff / 60
+    }
+
+    const totalShifts = fyShifts.length
+    const totalHours = fyShifts.reduce((sum, s) => sum + calculateHours(s), 0)
+
+    // Calculate weeks elapsed in current FY
+    const daysSinceFyStart = Math.floor((now.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24))
+    const weeksElapsed = Math.max(1, Math.ceil(daysSinceFyStart / 7))
+
     return {
       totalShifts,
-      totalHours: Math.round(totalHours),
-      avgHoursPerWeek: Math.round(totalHours / 52), // ~52 weeks in FY
+      totalHours: Math.round(totalHours * 10) / 10,
+      avgHoursPerWeek: Math.round(totalHours / weeksElapsed),
+      fyYear: `${fyStartYear}-${fyStartYear + 1}`, // e.g., "2025-2026"
     }
-  }, [fyData])
+  }, [shifts])
 
   // Monthly trend data (last 7 months)
   const monthlyData = useMemo(() => {
@@ -244,7 +336,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-center py-4">
-              <p className="text-sm text-gray-500 mb-1">{t('analytics.fy')}</p>
+              <p className="text-sm text-gray-500 mb-1">FY {fyTotals.fyYear}</p>
               <p className="text-5xl font-bold text-gray-900">{fyTotals.totalHours.toLocaleString()}</p>
               <p className="text-gray-500">{t('analytics.totalHours')}</p>
             </div>
