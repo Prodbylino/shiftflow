@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
+import { AuthChangeEvent } from '@supabase/supabase-js'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -31,10 +32,11 @@ export function useOrganizations(): UseOrganizationsReturn {
   const [loading, setLoading] = useState(!initialLoadDone)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(cachedUserId)
+  const sessionHandledRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
-  // Combined user fetch and data fetch to prevent race conditions
+  // Use onAuthStateChange for session detection
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
@@ -42,51 +44,19 @@ export function useOrganizations(): UseOrganizationsReturn {
       return
     }
 
-    // Skip if already initialized - use cached data
-    if (initialLoadDone) {
-      return
-    }
+    const supabase = createClient()
+    let isMounted = true
+    sessionHandledRef.current = false
 
-    let cancelled = false
-
-    // Timeout protection
-    const timeout = setTimeout(() => {
-      if (!cancelled && !initialLoadDone) {
-        console.warn('Organizations loading timeout')
-        setLoading(false)
-        initialLoadDone = true
-      }
-    }, 8000)
-
-    const loadData = async () => {
-      const supabase = createClient()
-
+    const fetchOrgs = async (uid: string) => {
       try {
-        // Get user first
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (cancelled) return
-
-        if (!user) {
-          cachedUserId = null
-          setUserId(null)
-          setLoading(false)
-          initialLoadDone = true
-          clearTimeout(timeout)
-          return
-        }
-
-        cachedUserId = user.id
-        setUserId(user.id)
-
-        // Fetch organizations immediately after getting user
         const { data, error: fetchError } = await supabase
           .from('organizations')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', uid)
           .order('created_at', { ascending: false })
 
-        if (cancelled) return
+        if (!isMounted) return
 
         if (fetchError) {
           setError(fetchError.message)
@@ -95,21 +65,67 @@ export function useOrganizations(): UseOrganizationsReturn {
           setOrganizations(data || [])
         }
       } catch (err) {
-        if (cancelled) return
-        console.error('Organizations load error:', err)
+        if (!isMounted) return
         setError('Failed to load organizations')
-      } finally {
-        if (!cancelled) {
-          clearTimeout(timeout)
-          setLoading(false)
-          initialLoadDone = true
-        }
       }
     }
 
-    loadData()
+    const handleSession = async (session: { user: { id: string } } | null, source: string) => {
+      if (!isMounted) return
 
-    return () => { cancelled = true }
+      // Prevent duplicate handling
+      if (sessionHandledRef.current && source !== 'auth_change') return
+      sessionHandledRef.current = true
+
+      if (session?.user) {
+        cachedUserId = session.user.id
+        setUserId(session.user.id)
+        await fetchOrgs(session.user.id)
+      } else {
+        cachedUserId = null
+        setUserId(null)
+        cachedOrganizations = []
+        setOrganizations([])
+      }
+
+      if (!initialLoadDone) {
+        setLoading(false)
+        initialLoadDone = true
+      }
+    }
+
+    // Get initial session immediately - this reads from cookies
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session, 'get_session')
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session) => {
+        if (!isMounted) return
+
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          sessionHandledRef.current = false
+          await handleSession(session, 'auth_change')
+        } else if (event === 'INITIAL_SESSION' && !sessionHandledRef.current) {
+          await handleSession(session, 'auth_change')
+        }
+      }
+    )
+
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (!initialLoadDone && isMounted) {
+        setLoading(false)
+        initialLoadDone = true
+      }
+    }, 5000)
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [supabaseConfigured])
 
   const fetchOrganizations = useCallback(async () => {

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User } from '@supabase/supabase-js'
+import { User, AuthChangeEvent } from '@supabase/supabase-js'
 import { Profile } from '@/types/database'
 
 // Check if Supabase is configured
@@ -30,6 +30,7 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(cachedUser)
   const [profile, setProfile] = useState<Profile | null>(cachedProfile)
   const [loading, setLoading] = useState(!initialLoadDone)
+  const sessionHandledRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -65,70 +66,64 @@ export function useAuth(): UseAuthReturn {
     }
 
     const supabase = createClient()
-    let timeout: NodeJS.Timeout
+    let isMounted = true
+    sessionHandledRef.current = false
 
-    // Only fetch session on initial load
-    if (!initialLoadDone) {
-      // Safety timeout to prevent infinite loading
-      timeout = setTimeout(() => {
-        if (!initialLoadDone) {
-          console.warn('Auth timeout - forcing loading to false')
-          setLoading(false)
-          initialLoadDone = true
-        }
-      }, 10000) // 10 second timeout
+    const handleSession = async (session: { user: User } | null, source: string) => {
+      if (!isMounted) return
 
-      const getSession = async () => {
-        try {
-          const { data: { user: authUser }, error } = await supabase.auth.getUser()
+      // Prevent duplicate handling
+      if (sessionHandledRef.current && source !== 'auth_change') return
+      sessionHandledRef.current = true
 
-          if (error) {
-            console.error('Auth error:', error)
-            cachedUser = null
-            setUser(null)
-          } else {
-            cachedUser = authUser
-            setUser(authUser)
+      cachedUser = session?.user ?? null
+      setUser(session?.user ?? null)
 
-            if (authUser) {
-              await fetchProfile(authUser.id, supabase)
-            }
-          }
-        } catch (err) {
-          // Handle auth errors gracefully
-          console.error('Unexpected auth error:', err)
-          cachedUser = null
-          setUser(null)
-        } finally {
-          clearTimeout(timeout)
-          setLoading(false)
-          initialLoadDone = true
-        }
+      if (session?.user) {
+        await fetchProfile(session.user.id, supabase)
+      } else {
+        cachedProfile = null
+        setProfile(null)
       }
 
-      getSession()
+      if (!initialLoadDone) {
+        setLoading(false)
+        initialLoadDone = true
+      }
     }
 
-    // Always subscribe to auth state changes
+    // Get initial session immediately - this reads from cookies
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session, 'get_session')
+    })
+
+    // Listen for auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Only update state on actual sign in/out events, ignore token refresh
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-          cachedUser = session?.user ?? null
-          setUser(session?.user ?? null)
-          if (session?.user) {
-            await fetchProfile(session.user.id, supabase)
-          } else {
-            cachedProfile = null
-            setProfile(null)
-          }
+      async (event: AuthChangeEvent, session) => {
+        if (!isMounted) return
+
+        // Only handle meaningful auth state changes, not token refreshes on focus
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          sessionHandledRef.current = false // Allow re-handling for actual auth changes
+          await handleSession(session, 'auth_change')
+        } else if (event === 'INITIAL_SESSION' && !sessionHandledRef.current) {
+          await handleSession(session, 'auth_change')
         }
       }
     )
 
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (!initialLoadDone && isMounted) {
+        setLoading(false)
+        initialLoadDone = true
+      }
+    }, 5000)
+
     return () => {
+      isMounted = false
       subscription.unsubscribe()
-      if (timeout) clearTimeout(timeout)
+      clearTimeout(timeout)
     }
   }, [supabaseConfigured, fetchProfile])
 
