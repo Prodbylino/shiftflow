@@ -30,13 +30,6 @@ export default function DashboardPage() {
   const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
   const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, refetch: refetchShifts } = useShifts()
 
-  useEffect(() => {
-    if (!authUser) return
-    // Ensure data is refreshed after session becomes available.
-    void refetchOrganizations()
-    void refetchShifts()
-  }, [authUser, refetchOrganizations, refetchShifts])
-
   // Transform DB organizations to calendar component format
   const calendarOrganizations: CalendarOrganization[] = useMemo(() => {
     return organizations.map(org => ({
@@ -88,8 +81,8 @@ export default function DashboardPage() {
     await deleteShift(shiftId)
   }
 
-  // Show loading while fetching data
-  if (authLoading) {
+  // Show loading while fetching initial data
+  if (authLoading || orgsLoading || shiftsLoading) {
     return <LoadingSpinner />
   }
 
