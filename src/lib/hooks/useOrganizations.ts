@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache
 let cachedOrganizations: Organization[] = []
 let cachedUserId: string | null = null
-let initialLoadDoneOrgsOrgs = false
+let initialLoadDoneOrgs = false
 
 interface UseOrganizationsReturn {
   organizations: Organization[]

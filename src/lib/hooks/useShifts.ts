@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache
 let cachedShifts: ShiftWithOrganization[] = []
 let cachedUserId: string | null = null
-let initialLoadDoneShiftsShifts = false
+let initialLoadDoneShifts = false
 
 interface UseShiftsOptions {
   startDate?: Date

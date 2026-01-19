@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache to persist across component remounts
 let cachedUser: User | null = null
 let cachedProfile: Profile | null = null
-let initialLoadDoneAuthAuth = false
+let initialLoadDoneAuth = false
 
 interface UseAuthReturn {
   user: User | null
