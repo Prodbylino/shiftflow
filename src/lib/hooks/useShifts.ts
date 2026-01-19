@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache
 let cachedShifts: ShiftWithOrganization[] = []
 let cachedUserId: string | null = null
-let initialLoadDone = false
+let initialLoadDoneShiftsShifts = false
 
 interface UseShiftsOptions {
   startDate?: Date
@@ -35,7 +35,7 @@ interface UseShiftsReturn {
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const [shifts, setShifts] = useState<ShiftWithOrganization[]>(cachedShifts)
-  const [loading, setLoading] = useState(!initialLoadDone)
+  const [loading, setLoading] = useState(!initialLoadDoneShifts)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(cachedUserId)
   const sessionHandledRef = useRef(false)
@@ -51,7 +51,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDone = true
+      initialLoadDoneShifts = true
       return
     }
 
@@ -119,9 +119,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         setShifts([])
       }
 
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneShifts && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneShifts = true
       }
     }
 
@@ -132,9 +132,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       })
       .catch(() => {
         if (!isMounted) return
-        if (!initialLoadDone) {
+        if (!initialLoadDoneShifts) {
           setLoading(false)
-          initialLoadDone = true
+          initialLoadDoneShifts = true
         }
       })
 
@@ -154,9 +154,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
     // Safety timeout
     const timeout = setTimeout(() => {
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneShifts && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneShifts = true
       }
     }, 5000)
 

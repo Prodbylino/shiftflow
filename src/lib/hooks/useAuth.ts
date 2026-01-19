@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache to persist across component remounts
 let cachedUser: User | null = null
 let cachedProfile: Profile | null = null
-let initialLoadDone = false
+let initialLoadDoneAuthAuth = false
 
 interface UseAuthReturn {
   user: User | null
@@ -29,7 +29,7 @@ export function useAuth(): UseAuthReturn {
   // Initialize with cached values if available
   const [user, setUser] = useState<User | null>(cachedUser)
   const [profile, setProfile] = useState<Profile | null>(cachedProfile)
-  const [loading, setLoading] = useState(!initialLoadDone)
+  const [loading, setLoading] = useState(!initialLoadDoneAuth)
   const sessionHandledRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
@@ -61,7 +61,7 @@ export function useAuth(): UseAuthReturn {
     // If Supabase is not configured, just set loading to false
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDone = true
+      initialLoadDoneAuth = true
       return
     }
 
@@ -87,9 +87,9 @@ export function useAuth(): UseAuthReturn {
         setProfile(null)
       }
 
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneAuth && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneAuth = true
       }
     }
 
@@ -100,9 +100,9 @@ export function useAuth(): UseAuthReturn {
       })
       .catch(() => {
         if (!isMounted) return
-        if (!initialLoadDone) {
+        if (!initialLoadDoneAuth) {
           setLoading(false)
-          initialLoadDone = true
+          initialLoadDoneAuth = true
         }
       })
 
@@ -123,9 +123,9 @@ export function useAuth(): UseAuthReturn {
 
     // Safety timeout
     const timeout = setTimeout(() => {
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneAuth && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneAuth = true
       }
     }, 5000)
 

@@ -15,7 +15,7 @@ const isSupabaseConfigured = () => {
 // Module-level cache
 let cachedOrganizations: Organization[] = []
 let cachedUserId: string | null = null
-let initialLoadDone = false
+let initialLoadDoneOrgsOrgs = false
 
 interface UseOrganizationsReturn {
   organizations: Organization[]
@@ -29,7 +29,7 @@ interface UseOrganizationsReturn {
 
 export function useOrganizations(): UseOrganizationsReturn {
   const [organizations, setOrganizations] = useState<Organization[]>(cachedOrganizations)
-  const [loading, setLoading] = useState(!initialLoadDone)
+  const [loading, setLoading] = useState(!initialLoadDoneOrgs)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(cachedUserId)
   const sessionHandledRef = useRef(false)
@@ -40,7 +40,7 @@ export function useOrganizations(): UseOrganizationsReturn {
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDone = true
+      initialLoadDoneOrgs = true
       return
     }
 
@@ -93,9 +93,9 @@ export function useOrganizations(): UseOrganizationsReturn {
         setOrganizations([])
       }
 
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneOrgs && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneOrgs = true
       }
     }
 
@@ -106,9 +106,9 @@ export function useOrganizations(): UseOrganizationsReturn {
       })
       .catch(() => {
         if (!isMounted) return
-        if (!initialLoadDone) {
+        if (!initialLoadDoneOrgs) {
           setLoading(false)
-          initialLoadDone = true
+          initialLoadDoneOrgs = true
         }
       })
 
@@ -128,9 +128,9 @@ export function useOrganizations(): UseOrganizationsReturn {
 
     // Safety timeout
     const timeout = setTimeout(() => {
-      if (!initialLoadDone && isMounted) {
+      if (!initialLoadDoneOrgs && isMounted) {
         setLoading(false)
-        initialLoadDone = true
+        initialLoadDoneOrgs = true
       }
     }, 5000)
 
