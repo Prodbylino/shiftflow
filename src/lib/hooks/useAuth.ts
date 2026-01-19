@@ -80,22 +80,31 @@ export function useAuth(): UseAuthReturn {
       setUser(session?.user ?? null)
 
       if (session?.user) {
+        // Load profile asynchronously
         await fetchProfile(session.user.id, supabase)
       } else {
         cachedProfile = null
         setProfile(null)
       }
 
-      if (!initialLoadDone) {
+      if (!initialLoadDone && isMounted) {
         setLoading(false)
         initialLoadDone = true
       }
     }
 
     // Get initial session immediately - this reads from cookies
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session, 'get_session')
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        handleSession(session, 'get_session')
+      })
+      .catch(() => {
+        if (!isMounted) return
+        if (!initialLoadDone) {
+          setLoading(false)
+          initialLoadDone = true
+        }
+      })
 
     // Listen for auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

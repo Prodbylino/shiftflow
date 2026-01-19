@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { LanguageSwitch } from '@/lib/i18n'
 import { MonthCalendar } from '@/components/calendar/MonthCalendar'
 import { UserMenu } from '@/components/calendar/UserMenu'
@@ -26,9 +26,16 @@ interface CalendarOrganization {
 }
 
 export default function DashboardPage() {
-  const { profile, signOut, loading: authLoading } = useAuth()
-  const { organizations, loading: orgsLoading } = useOrganizations()
-  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading } = useShifts()
+  const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
+  const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
+  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, refetch: refetchShifts } = useShifts()
+
+  useEffect(() => {
+    if (!authUser) return
+    // Ensure data is refreshed after session becomes available.
+    void refetchOrganizations()
+    void refetchShifts()
+  }, [authUser, refetchOrganizations, refetchShifts])
 
   // Transform DB organizations to calendar component format
   const calendarOrganizations: CalendarOrganization[] = useMemo(() => {
@@ -82,13 +89,13 @@ export default function DashboardPage() {
   }
 
   // Show loading while fetching data
-  if (authLoading || orgsLoading || shiftsLoading) {
+  if (authLoading) {
     return <LoadingSpinner />
   }
 
-  const user = {
-    name: profile?.full_name || 'User',
-    email: profile?.email || '',
+  const userForMenu = {
+    name: profile?.full_name || authUser?.email?.split('@')[0] || 'User',
+    email: profile?.email || authUser?.email || '',
   }
 
   return (
@@ -112,7 +119,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <LanguageSwitch />
-            <UserMenu user={user} onLogout={signOut} />
+            <UserMenu user={userForMenu} onLogout={signOut} />
           </div>
         </div>
       </header>

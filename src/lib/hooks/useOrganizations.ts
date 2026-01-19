@@ -60,6 +60,8 @@ export function useOrganizations(): UseOrganizationsReturn {
 
         if (fetchError) {
           setError(fetchError.message)
+          cachedOrganizations = []
+          setOrganizations([])
         } else {
           cachedOrganizations = data || []
           setOrganizations(data || [])
@@ -67,6 +69,8 @@ export function useOrganizations(): UseOrganizationsReturn {
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load organizations')
+        cachedOrganizations = []
+        setOrganizations([])
       }
     }
 
@@ -80,6 +84,7 @@ export function useOrganizations(): UseOrganizationsReturn {
       if (session?.user) {
         cachedUserId = session.user.id
         setUserId(session.user.id)
+        // Fetch organizations asynchronously
         await fetchOrgs(session.user.id)
       } else {
         cachedUserId = null
@@ -88,16 +93,24 @@ export function useOrganizations(): UseOrganizationsReturn {
         setOrganizations([])
       }
 
-      if (!initialLoadDone) {
+      if (!initialLoadDone && isMounted) {
         setLoading(false)
         initialLoadDone = true
       }
     }
 
     // Get initial session immediately - this reads from cookies
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session, 'get_session')
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        handleSession(session, 'get_session')
+      })
+      .catch(() => {
+        if (!isMounted) return
+        if (!initialLoadDone) {
+          setLoading(false)
+          initialLoadDone = true
+        }
+      })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

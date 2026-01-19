@@ -86,6 +86,8 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
         if (fetchError) {
           setError(fetchError.message)
+          cachedShifts = []
+          setShifts([])
         } else {
           cachedShifts = (data || []) as ShiftWithOrganization[]
           setShifts(cachedShifts)
@@ -93,6 +95,8 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load shifts')
+        cachedShifts = []
+        setShifts([])
       }
     }
 
@@ -106,6 +110,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (session?.user) {
         cachedUserId = session.user.id
         setUserId(session.user.id)
+        // Fetch shifts asynchronously
         await fetchShiftsData(session.user.id)
       } else {
         cachedUserId = null
@@ -114,16 +119,24 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         setShifts([])
       }
 
-      if (!initialLoadDone) {
+      if (!initialLoadDone && isMounted) {
         setLoading(false)
         initialLoadDone = true
       }
     }
 
     // Get initial session immediately - this reads from cookies
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleSession(session, 'get_session')
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        handleSession(session, 'get_session')
+      })
+      .catch(() => {
+        if (!isMounted) return
+        if (!initialLoadDone) {
+          setLoading(false)
+          initialLoadDone = true
+        }
+      })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

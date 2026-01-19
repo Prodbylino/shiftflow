@@ -54,10 +54,11 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
-  const { profile, signOut, loading } = useAuth()
+  const { user, profile, signOut, loading } = useAuth()
 
-  const initials = profile?.full_name
-    ?.split(' ')
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User'
+  const initials = displayName
+    .split(' ')
     .map(n => n[0])
     .join('')
     .toUpperCase()
@@ -113,10 +114,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-lg font-semibold text-gray-900 truncate">
-              {loading ? 'Loading...' : (profile?.full_name || 'User')}
+              {loading ? 'Loading...' : displayName}
             </p>
             <p className="text-base text-gray-500 truncate">
-              {loading ? '' : profile?.email}
+              {loading ? '' : (profile?.email || user?.email || '')}
             </p>
           </div>
         </div>
