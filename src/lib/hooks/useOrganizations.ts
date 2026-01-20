@@ -43,7 +43,7 @@ interface UseOrganizationsReturn {
 }
 
 export function useOrganizations(): UseOrganizationsReturn {
-  const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('shiftflow_orgs') || [])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -85,16 +85,13 @@ export function useOrganizations(): UseOrganizationsReturn {
         if (fetchError) {
           setError(fetchError.message)
           setOrganizations([])
-          setToLocalStorage('shiftflow_orgs', [])
         } else {
           setOrganizations(data || [])
-          setToLocalStorage('shiftflow_orgs', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load organizations')
         setOrganizations([])
-        setToLocalStorage('shiftflow_orgs', [])
       }
     }
 
@@ -113,7 +110,6 @@ export function useOrganizations(): UseOrganizationsReturn {
         } else {
           setUserId(null)
           setOrganizations([])
-          setToLocalStorage('shiftflow_orgs', [])
         }
       } catch (error) {
         console.error('Error in handleSession:', error)
@@ -207,9 +203,17 @@ export function useOrganizations(): UseOrganizationsReturn {
       return null
     }
 
-    const updatedOrgs = [data, ...organizations]
-    setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    // Re-fetch all organizations from database
+    const { data: allOrgs, error: fetchError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+
+    if (!fetchError && allOrgs) {
+      setOrganizations(allOrgs)
+    }
+
     return data
   }
 
@@ -218,6 +222,14 @@ export function useOrganizations(): UseOrganizationsReturn {
     setError(null)
 
     const supabase = createClient()
+
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) {
+      setError('Not authenticated')
+      return false
+    }
+
     const { error: updateError } = await supabase
       .from('organizations')
       .update(updates)
@@ -228,9 +240,17 @@ export function useOrganizations(): UseOrganizationsReturn {
       return false
     }
 
-    const updatedOrgs = organizations.map(org => org.id === id ? { ...org, ...updates } as Organization : org)
-    setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    // Re-fetch all organizations from database
+    const { data: allOrgs, error: fetchError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+
+    if (!fetchError && allOrgs) {
+      setOrganizations(allOrgs)
+    }
+
     return true
   }
 
@@ -239,6 +259,14 @@ export function useOrganizations(): UseOrganizationsReturn {
     setError(null)
 
     const supabase = createClient()
+
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) {
+      setError('Not authenticated')
+      return false
+    }
+
     const { error: deleteError } = await supabase
       .from('organizations')
       .delete()
@@ -249,9 +277,17 @@ export function useOrganizations(): UseOrganizationsReturn {
       return false
     }
 
-    const updatedOrgs = organizations.filter(org => org.id !== id)
-    setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    // Re-fetch all organizations from database
+    const { data: allOrgs, error: fetchError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+
+    if (!fetchError && allOrgs) {
+      setOrganizations(allOrgs)
+    }
+
     return true
   }
 
