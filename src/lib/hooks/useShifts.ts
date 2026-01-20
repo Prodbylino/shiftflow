@@ -252,9 +252,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     }
 
     const newShift = data as ShiftWithOrganization
-    setShifts(prev => [...prev, newShift].sort((a, b) =>
+    const updatedShifts = [...shifts, newShift].sort((a, b) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
-    ))
+    )
+    cachedShifts = updatedShifts
+    setShifts(updatedShifts)
+    setToLocalStorage('shiftflow_shifts', updatedShifts)
     return newShift
   }
 
@@ -278,9 +281,10 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       return false
     }
 
-    setShifts(prev =>
-      prev.map(s => s.id === id ? data as ShiftWithOrganization : s)
-    )
+    const updatedShifts = shifts.map(s => s.id === id ? data as ShiftWithOrganization : s)
+    cachedShifts = updatedShifts
+    setShifts(updatedShifts)
+    setToLocalStorage('shiftflow_shifts', updatedShifts)
     return true
   }
 
@@ -299,7 +303,10 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       return false
     }
 
-    setShifts(prev => prev.filter(s => s.id !== id))
+    const updatedShifts = shifts.filter(s => s.id !== id)
+    cachedShifts = updatedShifts
+    setShifts(updatedShifts)
+    setToLocalStorage('shiftflow_shifts', updatedShifts)
     return true
   }
 

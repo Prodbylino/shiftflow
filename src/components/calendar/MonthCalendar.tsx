@@ -138,6 +138,9 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
         shiftDate.getMonth() === date.getMonth() &&
         shiftDate.getFullYear() === date.getFullYear()
       )
+    }).sort((a, b) => {
+      // Sort by start time (earliest first)
+      return a.startTime.localeCompare(b.startTime)
     })
   }, [shifts])
 

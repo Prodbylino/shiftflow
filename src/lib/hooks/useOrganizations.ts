@@ -207,7 +207,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       return null
     }
 
-    setOrganizations(prev => [data, ...prev])
+    const updatedOrgs = [data, ...organizations]
+    cachedOrganizations = updatedOrgs
+    setOrganizations(updatedOrgs)
+    setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return data
   }
 
@@ -226,9 +229,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       return false
     }
 
-    setOrganizations(prev =>
-      prev.map(org => org.id === id ? { ...org, ...updates } as Organization : org)
-    )
+    const updatedOrgs = organizations.map(org => org.id === id ? { ...org, ...updates } as Organization : org)
+    cachedOrganizations = updatedOrgs
+    setOrganizations(updatedOrgs)
+    setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return true
   }
 
@@ -247,7 +251,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       return false
     }
 
-    setOrganizations(prev => prev.filter(org => org.id !== id))
+    const updatedOrgs = organizations.filter(org => org.id !== id)
+    cachedOrganizations = updatedOrgs
+    setOrganizations(updatedOrgs)
+    setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return true
   }
 
