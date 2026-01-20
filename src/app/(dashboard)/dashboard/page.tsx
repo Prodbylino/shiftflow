@@ -62,31 +62,52 @@ export default function DashboardPage() {
   }, [shifts])
 
   const handleAddShift = async (newShift: Omit<CalendarShift, 'id'>) => {
-    const org = calendarOrganizations.find(o => o.id === newShift.organizationId)
-    await createShift({
-      organization_id: newShift.organizationId,
-      title: org?.name || 'Shift',
-      date: formatDateString(newShift.date),
-      end_date: newShift.endDate ? formatDateString(newShift.endDate) : formatDateString(newShift.date),
-      start_time: newShift.startTime,
-      end_time: newShift.endTime,
-      notes: newShift.description || null,
-    })
+    try {
+      const org = calendarOrganizations.find(o => o.id === newShift.organizationId)
+      const result = await createShift({
+        organization_id: newShift.organizationId,
+        title: org?.name || 'Shift',
+        date: formatDateString(newShift.date),
+        end_date: newShift.endDate ? formatDateString(newShift.endDate) : formatDateString(newShift.date),
+        start_time: newShift.startTime,
+        end_time: newShift.endTime,
+        notes: newShift.description || null,
+      })
+      if (!result) {
+        console.error('Failed to create shift')
+      }
+    } catch (error) {
+      console.error('Error creating shift:', error)
+    }
   }
 
   const handleEditShift = async (updatedShift: CalendarShift) => {
-    await updateShift(updatedShift.id, {
-      organization_id: updatedShift.organizationId,
-      date: formatDateString(updatedShift.date),
-      end_date: updatedShift.endDate ? formatDateString(updatedShift.endDate) : formatDateString(updatedShift.date),
-      start_time: updatedShift.startTime,
-      end_time: updatedShift.endTime,
-      notes: updatedShift.description || null,
-    })
+    try {
+      const success = await updateShift(updatedShift.id, {
+        organization_id: updatedShift.organizationId,
+        date: formatDateString(updatedShift.date),
+        end_date: updatedShift.endDate ? formatDateString(updatedShift.endDate) : formatDateString(updatedShift.date),
+        start_time: updatedShift.startTime,
+        end_time: updatedShift.endTime,
+        notes: updatedShift.description || null,
+      })
+      if (!success) {
+        console.error('Failed to update shift')
+      }
+    } catch (error) {
+      console.error('Error updating shift:', error)
+    }
   }
 
   const handleDeleteShift = async (shiftId: string) => {
-    await deleteShift(shiftId)
+    try {
+      const success = await deleteShift(shiftId)
+      if (!success) {
+        console.error('Failed to delete shift')
+      }
+    } catch (error) {
+      console.error('Error deleting shift:', error)
+    }
   }
 
   // Show loading while fetching initial data
