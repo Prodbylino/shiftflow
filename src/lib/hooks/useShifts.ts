@@ -110,7 +110,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (session?.user) {
         cachedUserId = session.user.id
         setUserId(session.user.id)
-        // Fetch shifts asynchronously
+        // Fetch shifts and wait for completion
         await fetchShiftsData(session.user.id)
       } else {
         cachedUserId = null
@@ -119,7 +119,8 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         setShifts([])
       }
 
-      if (!initialLoadDoneShifts && isMounted) {
+      // Only set loading to false after data is loaded
+      if (isMounted) {
         setLoading(false)
         initialLoadDoneShifts = true
       }

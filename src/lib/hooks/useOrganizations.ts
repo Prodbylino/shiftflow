@@ -84,7 +84,7 @@ export function useOrganizations(): UseOrganizationsReturn {
       if (session?.user) {
         cachedUserId = session.user.id
         setUserId(session.user.id)
-        // Fetch organizations asynchronously
+        // Fetch organizations and wait for completion
         await fetchOrgs(session.user.id)
       } else {
         cachedUserId = null
@@ -93,7 +93,8 @@ export function useOrganizations(): UseOrganizationsReturn {
         setOrganizations([])
       }
 
-      if (!initialLoadDoneOrgs && isMounted) {
+      // Only set loading to false after data is loaded
+      if (isMounted) {
         setLoading(false)
         initialLoadDoneOrgs = true
       }

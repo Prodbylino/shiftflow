@@ -76,18 +76,20 @@ export function useAuth(): UseAuthReturn {
       if (sessionHandledRef.current && source !== 'auth_change') return
       sessionHandledRef.current = true
 
-      cachedUser = session?.user ?? null
-      setUser(session?.user ?? null)
-
       if (session?.user) {
-        // Load profile asynchronously
+        cachedUser = session.user
+        setUser(session.user)
+        // Load profile and wait for it to complete
         await fetchProfile(session.user.id, supabase)
       } else {
+        cachedUser = null
         cachedProfile = null
+        setUser(null)
         setProfile(null)
       }
 
-      if (!initialLoadDoneAuth && isMounted) {
+      // Only set loading to false after data is loaded
+      if (isMounted) {
         setLoading(false)
         initialLoadDoneAuth = true
       }
