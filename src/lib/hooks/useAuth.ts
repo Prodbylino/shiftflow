@@ -80,6 +80,9 @@ export function useAuth(): UseAuthReturn {
   }, [user, fetchProfile, supabaseConfigured])
 
   useEffect(() => {
+    // Reset the module-level flag on mount to ensure fresh load
+    initialLoadDoneAuth = false
+
     // If Supabase is not configured, just set loading to false
     if (!supabaseConfigured) {
       setLoading(false)

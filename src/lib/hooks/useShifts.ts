@@ -69,6 +69,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
+    // Reset the module-level flag on mount to ensure fresh load
+    initialLoadDoneShifts = false
+
     if (!supabaseConfigured) {
       setLoading(false)
       initialLoadDoneShifts = true
@@ -233,13 +236,21 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   }, [userId, supabaseConfigured, startDateStr, endDateStr, organizationId])
 
   const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
-    if (!userId || !supabaseConfigured) return null
+    if (!supabaseConfigured) return null
     setError(null)
 
     const supabase = createClient()
+
+    // Get current session to ensure we have the user_id
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) {
+      setError('Not authenticated')
+      return null
+    }
+
     const { data, error: createError } = await supabase
       .from('shifts')
-      .insert({ ...shift, user_id: userId })
+      .insert({ ...shift, user_id: session.user.id })
       .select(`
         *,
         organization:organizations(*)

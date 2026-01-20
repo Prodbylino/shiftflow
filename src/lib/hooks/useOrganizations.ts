@@ -58,6 +58,9 @@ export function useOrganizations(): UseOrganizationsReturn {
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
+    // Reset the module-level flag on mount to ensure fresh load
+    initialLoadDoneOrgs = false
+
     if (!supabaseConfigured) {
       setLoading(false)
       initialLoadDoneOrgs = true
@@ -192,13 +195,21 @@ export function useOrganizations(): UseOrganizationsReturn {
   }, [userId, supabaseConfigured])
 
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
-    if (!userId || !supabaseConfigured) return null
+    if (!supabaseConfigured) return null
     setError(null)
 
     const supabase = createClient()
+
+    // Get current session to ensure we have the user_id
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user?.id) {
+      setError('Not authenticated')
+      return null
+    }
+
     const { data, error: createError } = await supabase
       .from('organizations')
-      .insert({ ...org, user_id: userId })
+      .insert({ ...org, user_id: session.user.id })
       .select()
       .single()
 
