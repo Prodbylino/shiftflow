@@ -12,9 +12,29 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
+// Helper to safely access localStorage (only on client-side)
+const getFromLocalStorage = (key: string) => {
+  if (typeof window === 'undefined') return null
+  try {
+    const item = localStorage.getItem(key)
+    return item ? JSON.parse(item) : null
+  } catch {
+    return null
+  }
+}
+
+const setToLocalStorage = (key: string, value: any) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 // Module-level cache to persist across component remounts
-let cachedUser: User | null = null
-let cachedProfile: Profile | null = null
+let cachedUser: User | null = getFromLocalStorage('shiftflow_user')
+let cachedProfile: Profile | null = getFromLocalStorage('shiftflow_profile')
 let initialLoadDoneAuth = false
 
 interface UseAuthReturn {
@@ -43,10 +63,12 @@ export function useAuth(): UseAuthReturn {
         .single()
       cachedProfile = profileData
       setProfile(profileData)
+      setToLocalStorage('shiftflow_profile', profileData)
     } catch (err) {
       // Profile fetch failed, continue without profile
       cachedProfile = null
       setProfile(null)
+      setToLocalStorage('shiftflow_profile', null)
     }
   }, [])
 
@@ -79,6 +101,7 @@ export function useAuth(): UseAuthReturn {
       if (session?.user) {
         cachedUser = session.user
         setUser(session.user)
+        setToLocalStorage('shiftflow_user', session.user)
         // Load profile and wait for it to complete
         await fetchProfile(session.user.id, supabase)
       } else {
@@ -86,6 +109,8 @@ export function useAuth(): UseAuthReturn {
         cachedProfile = null
         setUser(null)
         setProfile(null)
+        setToLocalStorage('shiftflow_user', null)
+        setToLocalStorage('shiftflow_profile', null)
       }
 
       // Only set loading to false after data is loaded

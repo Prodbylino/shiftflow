@@ -12,8 +12,28 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
+// Helper to safely access localStorage
+const getFromLocalStorage = (key: string) => {
+  if (typeof window === 'undefined') return null
+  try {
+    const item = localStorage.getItem(key)
+    return item ? JSON.parse(item) : null
+  } catch {
+    return null
+  }
+}
+
+const setToLocalStorage = (key: string, value: any) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 // Module-level cache
-let cachedShifts: ShiftWithOrganization[] = []
+let cachedShifts: ShiftWithOrganization[] = getFromLocalStorage('shiftflow_shifts') || []
 let cachedUserId: string | null = null
 let initialLoadDoneShifts = false
 
@@ -88,15 +108,18 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           setError(fetchError.message)
           cachedShifts = []
           setShifts([])
+          setToLocalStorage('shiftflow_shifts', [])
         } else {
           cachedShifts = (data || []) as ShiftWithOrganization[]
           setShifts(cachedShifts)
+          setToLocalStorage('shiftflow_shifts', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load shifts')
         cachedShifts = []
         setShifts([])
+        setToLocalStorage('shiftflow_shifts', [])
       }
     }
 
@@ -117,6 +140,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         setUserId(null)
         cachedShifts = []
         setShifts([])
+        setToLocalStorage('shiftflow_shifts', [])
       }
 
       // Only set loading to false after data is loaded

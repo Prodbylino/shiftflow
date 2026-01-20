@@ -12,8 +12,28 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
+// Helper to safely access localStorage
+const getFromLocalStorage = (key: string) => {
+  if (typeof window === 'undefined') return null
+  try {
+    const item = localStorage.getItem(key)
+    return item ? JSON.parse(item) : null
+  } catch {
+    return null
+  }
+}
+
+const setToLocalStorage = (key: string, value: any) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 // Module-level cache
-let cachedOrganizations: Organization[] = []
+let cachedOrganizations: Organization[] = getFromLocalStorage('shiftflow_orgs') || []
 let cachedUserId: string | null = null
 let initialLoadDoneOrgs = false
 
@@ -62,15 +82,18 @@ export function useOrganizations(): UseOrganizationsReturn {
           setError(fetchError.message)
           cachedOrganizations = []
           setOrganizations([])
+          setToLocalStorage('shiftflow_orgs', [])
         } else {
           cachedOrganizations = data || []
           setOrganizations(data || [])
+          setToLocalStorage('shiftflow_orgs', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load organizations')
         cachedOrganizations = []
         setOrganizations([])
+        setToLocalStorage('shiftflow_orgs', [])
       }
     }
 
@@ -91,6 +114,7 @@ export function useOrganizations(): UseOrganizationsReturn {
         setUserId(null)
         cachedOrganizations = []
         setOrganizations([])
+        setToLocalStorage('shiftflow_orgs', [])
       }
 
       // Only set loading to false after data is loaded
