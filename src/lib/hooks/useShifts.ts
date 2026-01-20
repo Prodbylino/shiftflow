@@ -36,7 +36,6 @@ const setToLocalStorage = (key: string, value: any) => {
 let cachedShifts: ShiftWithOrganization[] = getFromLocalStorage('shiftflow_shifts') || []
 let cachedUserId: string | null = null
 let initialLoadDoneShifts = false
-let isInitialLoad = true // Track if this is the first load after page refresh
 
 interface UseShiftsOptions {
   startDate?: Date
@@ -56,7 +55,7 @@ interface UseShiftsReturn {
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const [shifts, setShifts] = useState<ShiftWithOrganization[]>(cachedShifts)
-  const [loading, setLoading] = useState(isInitialLoad || !initialLoadDoneShifts)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(cachedUserId)
   const sessionHandledRef = useRef(false)
@@ -148,7 +147,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (isMounted) {
         setLoading(false)
         initialLoadDoneShifts = true
-        isInitialLoad = false
       }
     }
 
