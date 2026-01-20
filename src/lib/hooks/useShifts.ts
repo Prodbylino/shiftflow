@@ -241,26 +241,24 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         console.error('[useShifts] Supabase not configured')
         return null
       }
+
+      // Check if we have userId from state
+      if (!userId) {
+        console.error('[useShifts] No userId available in state')
+        setError('Not authenticated')
+        return null
+      }
+
       setError(null)
 
       console.log('[useShifts] Creating supabase client')
       const supabase = createClient()
 
-      console.log('[useShifts] Getting session')
-      // Get current session to ensure we have the user_id
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[useShifts] Session check in createShift:', session?.user?.id)
-      if (!session?.user?.id) {
-        console.error('[useShifts] Not authenticated - no session')
-        setError('Not authenticated')
-        return null
-      }
-
-      console.log('[useShifts] Inserting shift to database, data:', shift)
+      console.log('[useShifts] Inserting shift to database (using userId from state), data:', shift)
 
       const { data, error: createError } = await supabase
         .from('shifts')
-        .insert({ ...shift, user_id: session.user.id })
+        .insert({ ...shift, user_id: userId })
         .select(`
           *,
           organization:organizations(*)
@@ -283,7 +281,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           *,
           organization:organizations(*)
         `)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('date', { ascending: true })
 
       if (!fetchError && allShifts) {
@@ -302,56 +300,69 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   }
 
   const updateShift = async (id: string, updates: ShiftUpdate): Promise<boolean> => {
-    if (!supabaseConfigured) return false
-    setError(null)
+    try {
+      console.log('[useShifts] updateShift START, id:', id, 'userId state:', userId)
+      if (!supabaseConfigured) {
+        console.error('[useShifts] Supabase not configured')
+        return false
+      }
 
-    const supabase = createClient()
+      // Check if we have userId from state
+      if (!userId) {
+        console.error('[useShifts] No userId available in state')
+        setError('Not authenticated')
+        return false
+      }
 
-    // Get current session
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user?.id) {
-      console.error('Not authenticated - no session')
-      setError('Not authenticated')
+      setError(null)
+
+      console.log('[useShifts] Creating supabase client')
+      const supabase = createClient()
+
+      console.log('[useShifts] Updating shift in database')
+
+      const { data, error: updateError } = await supabase
+        .from('shifts')
+        .update(updates)
+        .eq('id', id)
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
+        .single()
+
+      if (updateError) {
+        console.error('[useShifts] Error updating shift:', updateError)
+        setError(updateError.message)
+        return false
+      }
+
+      console.log('[useShifts] Shift updated successfully:', data)
+
+      console.log('[useShifts] Re-fetching all shifts')
+      // Re-fetch all shifts from database to ensure we have the latest data
+      const { data: allShifts, error: fetchError } = await supabase
+        .from('shifts')
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
+        .eq('user_id', userId)
+        .order('date', { ascending: true })
+
+      if (!fetchError && allShifts) {
+        console.log('[useShifts] Re-fetched', allShifts.length, 'shifts, updating state')
+        const shiftsData = allShifts as ShiftWithOrganization[]
+        setShifts(shiftsData)
+        setToLocalStorage('shiftflow_shifts', shiftsData)
+      }
+
+      console.log('[useShifts] updateShift END')
+      return true
+    } catch (error) {
+      console.error('[useShifts] EXCEPTION in updateShift:', error)
       return false
     }
-
-    console.log('Updating shift:', id)
-
-    const { data, error: updateError } = await supabase
-      .from('shifts')
-      .update(updates)
-      .eq('id', id)
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .single()
-
-    if (updateError) {
-      console.error('Error updating shift:', updateError)
-      setError(updateError.message)
-      return false
-    }
-
-    console.log('Shift updated successfully:', data)
-
-    // Re-fetch all shifts from database to ensure we have the latest data
-    const { data: allShifts, error: fetchError } = await supabase
-      .from('shifts')
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .eq('user_id', session.user.id)
-      .order('date', { ascending: true })
-
-    if (!fetchError && allShifts) {
-      const shiftsData = allShifts as ShiftWithOrganization[]
-      setShifts(shiftsData)
-      setToLocalStorage('shiftflow_shifts', shiftsData)
-    }
-
-    return true
   }
 
   const deleteShift = async (id: string): Promise<boolean> => {
@@ -361,22 +372,20 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         console.error('[useShifts] Supabase not configured')
         return false
       }
+
+      // Check if we have userId from state
+      if (!userId) {
+        console.error('[useShifts] No userId available in state')
+        setError('Not authenticated')
+        return false
+      }
+
       setError(null)
 
       console.log('[useShifts] Creating supabase client')
       const supabase = createClient()
 
-      console.log('[useShifts] Getting session')
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[useShifts] Session check in deleteShift:', session?.user?.id)
-      if (!session?.user?.id) {
-        console.error('[useShifts] Not authenticated - no session')
-        setError('Not authenticated')
-        return false
-      }
-
-      console.log('[useShifts] Deleting shift from database')
+      console.log('[useShifts] Deleting shift from database (using userId from state)')
 
       const { error: deleteError } = await supabase
         .from('shifts')
@@ -399,7 +408,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           *,
           organization:organizations(*)
         `)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('date', { ascending: true })
 
       if (!fetchError && allShifts) {
