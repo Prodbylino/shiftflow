@@ -32,11 +32,6 @@ const setToLocalStorage = (key: string, value: any) => {
   }
 }
 
-// Module-level cache
-let cachedOrganizations: Organization[] = getFromLocalStorage('shiftflow_orgs') || []
-let cachedUserId: string | null = null
-let initialLoadDoneOrgs = false
-
 interface UseOrganizationsReturn {
   organizations: Organization[]
   loading: boolean
@@ -48,28 +43,34 @@ interface UseOrganizationsReturn {
 }
 
 export function useOrganizations(): UseOrganizationsReturn {
-  const [organizations, setOrganizations] = useState<Organization[]>(cachedOrganizations)
+  const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('shiftflow_orgs') || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(cachedUserId)
+  const [userId, setUserId] = useState<string | null>(null)
   const sessionHandledRef = useRef(false)
+  const loadingCompletedRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
-    // Reset the module-level flag on mount to ensure fresh load
-    initialLoadDoneOrgs = false
-
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDoneOrgs = true
+      loadingCompletedRef.current = true
       return
     }
 
     const supabase = createClient()
     let isMounted = true
     sessionHandledRef.current = false
+    loadingCompletedRef.current = false
+
+    const completeLoading = () => {
+      if (isMounted && !loadingCompletedRef.current) {
+        setLoading(false)
+        loadingCompletedRef.current = true
+      }
+    }
 
     const fetchOrgs = async (uid: string) => {
       try {
@@ -83,18 +84,15 @@ export function useOrganizations(): UseOrganizationsReturn {
 
         if (fetchError) {
           setError(fetchError.message)
-          cachedOrganizations = []
           setOrganizations([])
           setToLocalStorage('shiftflow_orgs', [])
         } else {
-          cachedOrganizations = data || []
           setOrganizations(data || [])
           setToLocalStorage('shiftflow_orgs', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load organizations')
-        cachedOrganizations = []
         setOrganizations([])
         setToLocalStorage('shiftflow_orgs', [])
       }
@@ -107,23 +105,21 @@ export function useOrganizations(): UseOrganizationsReturn {
       if (sessionHandledRef.current && source !== 'auth_change') return
       sessionHandledRef.current = true
 
-      if (session?.user) {
-        cachedUserId = session.user.id
-        setUserId(session.user.id)
-        // Fetch organizations and wait for completion
-        await fetchOrgs(session.user.id)
-      } else {
-        cachedUserId = null
-        setUserId(null)
-        cachedOrganizations = []
-        setOrganizations([])
-        setToLocalStorage('shiftflow_orgs', [])
-      }
-
-      // Only set loading to false after data is loaded
-      if (isMounted) {
-        setLoading(false)
-        initialLoadDoneOrgs = true
+      try {
+        if (session?.user) {
+          setUserId(session.user.id)
+          // Fetch organizations and wait for completion
+          await fetchOrgs(session.user.id)
+        } else {
+          setUserId(null)
+          setOrganizations([])
+          setToLocalStorage('shiftflow_orgs', [])
+        }
+      } catch (error) {
+        console.error('Error in handleSession:', error)
+      } finally {
+        // Always complete loading, even if there's an error
+        completeLoading()
       }
     }
 
@@ -132,12 +128,9 @@ export function useOrganizations(): UseOrganizationsReturn {
       .then(({ data: { session } }) => {
         handleSession(session, 'get_session')
       })
-      .catch(() => {
-        if (!isMounted) return
-        if (!initialLoadDoneOrgs) {
-          setLoading(false)
-          initialLoadDoneOrgs = true
-        }
+      .catch((error) => {
+        console.error('Error getting session:', error)
+        completeLoading()
       })
 
     // Listen for auth changes
@@ -154,13 +147,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     )
 
-    // Safety timeout
+    // Safety timeout - ensure loading completes within 3 seconds
     const timeout = setTimeout(() => {
-      if (!initialLoadDoneOrgs && isMounted) {
-        setLoading(false)
-        initialLoadDoneOrgs = true
-      }
-    }, 5000)
+      completeLoading()
+    }, 3000)
 
     return () => {
       isMounted = false
@@ -186,7 +176,6 @@ export function useOrganizations(): UseOrganizationsReturn {
       if (fetchError) {
         setError(fetchError.message)
       } else {
-        cachedOrganizations = data || []
         setOrganizations(data || [])
       }
     } catch (err) {
@@ -219,7 +208,6 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
 
     const updatedOrgs = [data, ...organizations]
-    cachedOrganizations = updatedOrgs
     setOrganizations(updatedOrgs)
     setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return data
@@ -241,7 +229,6 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
 
     const updatedOrgs = organizations.map(org => org.id === id ? { ...org, ...updates } as Organization : org)
-    cachedOrganizations = updatedOrgs
     setOrganizations(updatedOrgs)
     setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return true
@@ -263,7 +250,6 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
 
     const updatedOrgs = organizations.filter(org => org.id !== id)
-    cachedOrganizations = updatedOrgs
     setOrganizations(updatedOrgs)
     setToLocalStorage('shiftflow_orgs', updatedOrgs)
     return true

@@ -32,11 +32,6 @@ const setToLocalStorage = (key: string, value: any) => {
   }
 }
 
-// Module-level cache to persist across component remounts
-let cachedUser: User | null = getFromLocalStorage('shiftflow_user')
-let cachedProfile: Profile | null = getFromLocalStorage('shiftflow_profile')
-let initialLoadDoneAuth = false
-
 interface UseAuthReturn {
   user: User | null
   profile: Profile | null
@@ -46,11 +41,12 @@ interface UseAuthReturn {
 }
 
 export function useAuth(): UseAuthReturn {
-  // Initialize with cached values if available, but always start with loading=true
-  const [user, setUser] = useState<User | null>(cachedUser)
-  const [profile, setProfile] = useState<Profile | null>(cachedProfile)
+  // Initialize from localStorage, but always start with loading=true
+  const [user, setUser] = useState<User | null>(() => getFromLocalStorage('shiftflow_user'))
+  const [profile, setProfile] = useState<Profile | null>(() => getFromLocalStorage('shiftflow_profile'))
   const [loading, setLoading] = useState(true)
   const sessionHandledRef = useRef(false)
+  const loadingCompletedRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -61,12 +57,10 @@ export function useAuth(): UseAuthReturn {
         .select('*')
         .eq('id', userId)
         .single()
-      cachedProfile = profileData
       setProfile(profileData)
       setToLocalStorage('shiftflow_profile', profileData)
     } catch (err) {
       // Profile fetch failed, continue without profile
-      cachedProfile = null
       setProfile(null)
       setToLocalStorage('shiftflow_profile', null)
     }
@@ -80,19 +74,24 @@ export function useAuth(): UseAuthReturn {
   }, [user, fetchProfile, supabaseConfigured])
 
   useEffect(() => {
-    // Reset the module-level flag on mount to ensure fresh load
-    initialLoadDoneAuth = false
-
     // If Supabase is not configured, just set loading to false
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDoneAuth = true
+      loadingCompletedRef.current = true
       return
     }
 
     const supabase = createClient()
     let isMounted = true
     sessionHandledRef.current = false
+    loadingCompletedRef.current = false
+
+    const completeLoading = () => {
+      if (isMounted && !loadingCompletedRef.current) {
+        setLoading(false)
+        loadingCompletedRef.current = true
+      }
+    }
 
     const handleSession = async (session: { user: User } | null, source: string) => {
       if (!isMounted) return
@@ -101,25 +100,23 @@ export function useAuth(): UseAuthReturn {
       if (sessionHandledRef.current && source !== 'auth_change') return
       sessionHandledRef.current = true
 
-      if (session?.user) {
-        cachedUser = session.user
-        setUser(session.user)
-        setToLocalStorage('shiftflow_user', session.user)
-        // Load profile and wait for it to complete
-        await fetchProfile(session.user.id, supabase)
-      } else {
-        cachedUser = null
-        cachedProfile = null
-        setUser(null)
-        setProfile(null)
-        setToLocalStorage('shiftflow_user', null)
-        setToLocalStorage('shiftflow_profile', null)
-      }
-
-      // Only set loading to false after data is loaded
-      if (isMounted) {
-        setLoading(false)
-        initialLoadDoneAuth = true
+      try {
+        if (session?.user) {
+          setUser(session.user)
+          setToLocalStorage('shiftflow_user', session.user)
+          // Load profile and wait for it to complete
+          await fetchProfile(session.user.id, supabase)
+        } else {
+          setUser(null)
+          setProfile(null)
+          setToLocalStorage('shiftflow_user', null)
+          setToLocalStorage('shiftflow_profile', null)
+        }
+      } catch (error) {
+        console.error('Error in handleSession:', error)
+      } finally {
+        // Always complete loading, even if there's an error
+        completeLoading()
       }
     }
 
@@ -128,12 +125,9 @@ export function useAuth(): UseAuthReturn {
       .then(({ data: { session } }) => {
         handleSession(session, 'get_session')
       })
-      .catch(() => {
-        if (!isMounted) return
-        if (!initialLoadDoneAuth) {
-          setLoading(false)
-          initialLoadDoneAuth = true
-        }
+      .catch((error) => {
+        console.error('Error getting session:', error)
+        completeLoading()
       })
 
     // Listen for auth changes (sign in, sign out, token refresh)
@@ -151,13 +145,10 @@ export function useAuth(): UseAuthReturn {
       }
     )
 
-    // Safety timeout
+    // Safety timeout - ensure loading completes within 3 seconds
     const timeout = setTimeout(() => {
-      if (!initialLoadDoneAuth && isMounted) {
-        setLoading(false)
-        initialLoadDoneAuth = true
-      }
-    }, 5000)
+      completeLoading()
+    }, 3000)
 
     return () => {
       isMounted = false

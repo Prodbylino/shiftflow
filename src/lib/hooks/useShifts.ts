@@ -32,11 +32,6 @@ const setToLocalStorage = (key: string, value: any) => {
   }
 }
 
-// Module-level cache
-let cachedShifts: ShiftWithOrganization[] = getFromLocalStorage('shiftflow_shifts') || []
-let cachedUserId: string | null = null
-let initialLoadDoneShifts = false
-
 interface UseShiftsOptions {
   startDate?: Date
   endDate?: Date
@@ -54,11 +49,12 @@ interface UseShiftsReturn {
 }
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
-  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(cachedShifts)
+  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage('shiftflow_shifts') || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(cachedUserId)
+  const [userId, setUserId] = useState<string | null>(null)
   const sessionHandledRef = useRef(false)
+  const loadingCompletedRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -69,18 +65,23 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
-    // Reset the module-level flag on mount to ensure fresh load
-    initialLoadDoneShifts = false
-
     if (!supabaseConfigured) {
       setLoading(false)
-      initialLoadDoneShifts = true
+      loadingCompletedRef.current = true
       return
     }
 
     const supabase = createClient()
     let isMounted = true
     sessionHandledRef.current = false
+    loadingCompletedRef.current = false
+
+    const completeLoading = () => {
+      if (isMounted && !loadingCompletedRef.current) {
+        setLoading(false)
+        loadingCompletedRef.current = true
+      }
+    }
 
     const fetchShiftsData = async (uid: string) => {
       try {
@@ -109,18 +110,15 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
         if (fetchError) {
           setError(fetchError.message)
-          cachedShifts = []
           setShifts([])
           setToLocalStorage('shiftflow_shifts', [])
         } else {
-          cachedShifts = (data || []) as ShiftWithOrganization[]
-          setShifts(cachedShifts)
+          setShifts((data || []) as ShiftWithOrganization[])
           setToLocalStorage('shiftflow_shifts', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load shifts')
-        cachedShifts = []
         setShifts([])
         setToLocalStorage('shiftflow_shifts', [])
       }
@@ -133,23 +131,21 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (sessionHandledRef.current && source !== 'auth_change') return
       sessionHandledRef.current = true
 
-      if (session?.user) {
-        cachedUserId = session.user.id
-        setUserId(session.user.id)
-        // Fetch shifts and wait for completion
-        await fetchShiftsData(session.user.id)
-      } else {
-        cachedUserId = null
-        setUserId(null)
-        cachedShifts = []
-        setShifts([])
-        setToLocalStorage('shiftflow_shifts', [])
-      }
-
-      // Only set loading to false after data is loaded
-      if (isMounted) {
-        setLoading(false)
-        initialLoadDoneShifts = true
+      try {
+        if (session?.user) {
+          setUserId(session.user.id)
+          // Fetch shifts and wait for completion
+          await fetchShiftsData(session.user.id)
+        } else {
+          setUserId(null)
+          setShifts([])
+          setToLocalStorage('shiftflow_shifts', [])
+        }
+      } catch (error) {
+        console.error('Error in handleSession:', error)
+      } finally {
+        // Always complete loading, even if there's an error
+        completeLoading()
       }
     }
 
@@ -158,12 +154,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       .then(({ data: { session } }) => {
         handleSession(session, 'get_session')
       })
-      .catch(() => {
-        if (!isMounted) return
-        if (!initialLoadDoneShifts) {
-          setLoading(false)
-          initialLoadDoneShifts = true
-        }
+      .catch((error) => {
+        console.error('Error getting session:', error)
+        completeLoading()
       })
 
     // Listen for auth changes
@@ -180,13 +173,10 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       }
     )
 
-    // Safety timeout
+    // Safety timeout - ensure loading completes within 3 seconds
     const timeout = setTimeout(() => {
-      if (!initialLoadDoneShifts && isMounted) {
-        setLoading(false)
-        initialLoadDoneShifts = true
-      }
-    }, 5000)
+      completeLoading()
+    }, 3000)
 
     return () => {
       isMounted = false
@@ -227,8 +217,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (fetchError) {
         setError(fetchError.message)
       } else {
-        cachedShifts = (data || []) as ShiftWithOrganization[]
-        setShifts(cachedShifts)
+        setShifts((data || []) as ShiftWithOrganization[])
       }
     } catch (err) {
       setError('Failed to fetch shifts')
@@ -266,7 +255,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     const updatedShifts = [...shifts, newShift].sort((a, b) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
     )
-    cachedShifts = updatedShifts
     setShifts(updatedShifts)
     setToLocalStorage('shiftflow_shifts', updatedShifts)
     return newShift
@@ -293,7 +281,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     }
 
     const updatedShifts = shifts.map(s => s.id === id ? data as ShiftWithOrganization : s)
-    cachedShifts = updatedShifts
     setShifts(updatedShifts)
     setToLocalStorage('shiftflow_shifts', updatedShifts)
     return true
@@ -315,7 +302,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     }
 
     const updatedShifts = shifts.filter(s => s.id !== id)
-    cachedShifts = updatedShifts
     setShifts(updatedShifts)
     setToLocalStorage('shiftflow_shifts', updatedShifts)
     return true
