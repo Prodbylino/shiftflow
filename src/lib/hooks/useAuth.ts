@@ -36,6 +36,7 @@ const setToLocalStorage = (key: string, value: any) => {
 let cachedUser: User | null = getFromLocalStorage('shiftflow_user')
 let cachedProfile: Profile | null = getFromLocalStorage('shiftflow_profile')
 let initialLoadDoneAuth = false
+let isInitialLoad = true // Track if this is the first load after page refresh
 
 interface UseAuthReturn {
   user: User | null
@@ -49,7 +50,7 @@ export function useAuth(): UseAuthReturn {
   // Initialize with cached values if available
   const [user, setUser] = useState<User | null>(cachedUser)
   const [profile, setProfile] = useState<Profile | null>(cachedProfile)
-  const [loading, setLoading] = useState(!initialLoadDoneAuth)
+  const [loading, setLoading] = useState(isInitialLoad || !initialLoadDoneAuth)
   const sessionHandledRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
@@ -117,6 +118,7 @@ export function useAuth(): UseAuthReturn {
       if (isMounted) {
         setLoading(false)
         initialLoadDoneAuth = true
+        isInitialLoad = false
       }
     }
 

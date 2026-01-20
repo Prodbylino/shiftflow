@@ -36,6 +36,7 @@ const setToLocalStorage = (key: string, value: any) => {
 let cachedOrganizations: Organization[] = getFromLocalStorage('shiftflow_orgs') || []
 let cachedUserId: string | null = null
 let initialLoadDoneOrgs = false
+let isInitialLoad = true // Track if this is the first load after page refresh
 
 interface UseOrganizationsReturn {
   organizations: Organization[]
@@ -49,7 +50,7 @@ interface UseOrganizationsReturn {
 
 export function useOrganizations(): UseOrganizationsReturn {
   const [organizations, setOrganizations] = useState<Organization[]>(cachedOrganizations)
-  const [loading, setLoading] = useState(!initialLoadDoneOrgs)
+  const [loading, setLoading] = useState(isInitialLoad || !initialLoadDoneOrgs)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(cachedUserId)
   const sessionHandledRef = useRef(false)
@@ -121,6 +122,7 @@ export function useOrganizations(): UseOrganizationsReturn {
       if (isMounted) {
         setLoading(false)
         initialLoadDoneOrgs = true
+        isInitialLoad = false
       }
     }
 
