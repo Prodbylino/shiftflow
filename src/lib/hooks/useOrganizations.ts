@@ -73,6 +73,7 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
 
     const fetchOrgs = async (uid: string) => {
+      console.log('[useOrganizations] Fetching organizations for user:', uid)
       try {
         const { data, error: fetchError } = await supabase
           .from('organizations')
@@ -83,10 +84,12 @@ export function useOrganizations(): UseOrganizationsReturn {
         if (!isMounted) return
 
         if (fetchError) {
+          console.error('[useOrganizations] Error fetching organizations:', fetchError)
           setError(fetchError.message)
           setOrganizations([])
           setToLocalStorage('shiftflow_orgs', [])
         } else {
+          console.log('[useOrganizations] Fetched organizations from DB:', data?.length || 0, 'orgs')
           setOrganizations(data || [])
           setToLocalStorage('shiftflow_orgs', data || [])
         }
