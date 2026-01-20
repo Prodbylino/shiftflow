@@ -604,36 +604,52 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
                         {day.getDate()}
                       </div>
                       {dayShifts.length > 0 ? (
-                        <div className="space-y-1">
-                          {dayShifts.slice(0, 2).map((shift) => (
-                            <div
-                              key={shift.id}
-                              className="shift-block text-white px-1.5 py-1 rounded relative group cursor-pointer overflow-hidden"
-                              style={{ backgroundColor: getOrgColor(shift.organizationId) }}
-                              onClick={(e) => handleShiftClick(e, shift)}
-                              onContextMenu={(e) => handleShiftRightClick(e, shift)}
-                            >
-                              {/* Delete button - appears on hover */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteShift(shift.id)
-                                }}
-                                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                        <div className="space-y-0.5">
+                          {dayShifts.map((shift) => {
+                            // Calculate shift block size based on number of shifts
+                            const shiftCount = dayShifts.length
+                            const isSmall = shiftCount > 3
+                            const isTiny = shiftCount > 5
+
+                            return (
+                              <div
+                                key={shift.id}
+                                className={`
+                                  shift-block text-white rounded relative group cursor-pointer overflow-hidden
+                                  ${isTiny ? 'px-0.5 py-0.5' : isSmall ? 'px-1 py-0.5' : 'px-1.5 py-1'}
+                                `}
+                                style={{ backgroundColor: getOrgColor(shift.organizationId) }}
+                                onClick={(e) => handleShiftClick(e, shift)}
+                                onContextMenu={(e) => handleShiftRightClick(e, shift)}
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M18 6L6 18M6 6l12 12"/>
-                                </svg>
-                              </button>
-                              <div className="text-xs font-semibold truncate leading-tight">{getOrgName(shift.organizationId)}</div>
-                              <div className="text-[10px] opacity-90 truncate leading-tight">{formatShiftTime(shift)}</div>
-                            </div>
-                          ))}
-                          {dayShifts.length > 2 && (
-                            <div className="text-xs text-gray-500 font-medium">
-                              +{dayShifts.length - 2}
-                            </div>
-                          )}
+                                {/* Delete button - only show if not tiny */}
+                                {!isTiny && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteShift(shift.id)
+                                    }}
+                                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M18 6L6 18M6 6l12 12"/>
+                                    </svg>
+                                  </button>
+                                )}
+                                {/* Show text only if not tiny */}
+                                {!isTiny && (
+                                  <>
+                                    <div className={`font-semibold truncate leading-tight ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
+                                      {getOrgName(shift.organizationId)}
+                                    </div>
+                                    <div className={`opacity-90 truncate leading-tight ${isSmall ? 'text-[8px]' : 'text-[10px]'}`}>
+                                      {formatShiftTime(shift)}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       ) : (
                         <div className="text-sm text-gray-300 hover:text-blue-400">

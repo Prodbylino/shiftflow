@@ -25,6 +25,14 @@ interface CalendarOrganization {
   hourlyRate: number
 }
 
+// Helper function to format date without timezone offset
+const formatDateString = (date: Date): string => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function DashboardPage() {
   const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
   const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
@@ -58,8 +66,8 @@ export default function DashboardPage() {
     await createShift({
       organization_id: newShift.organizationId,
       title: org?.name || 'Shift',
-      date: newShift.date.toISOString().split('T')[0],
-      end_date: newShift.endDate ? newShift.endDate.toISOString().split('T')[0] : newShift.date.toISOString().split('T')[0],
+      date: formatDateString(newShift.date),
+      end_date: newShift.endDate ? formatDateString(newShift.endDate) : formatDateString(newShift.date),
       start_time: newShift.startTime,
       end_time: newShift.endTime,
       notes: newShift.description || null,
@@ -69,8 +77,8 @@ export default function DashboardPage() {
   const handleEditShift = async (updatedShift: CalendarShift) => {
     await updateShift(updatedShift.id, {
       organization_id: updatedShift.organizationId,
-      date: updatedShift.date.toISOString().split('T')[0],
-      end_date: updatedShift.endDate ? updatedShift.endDate.toISOString().split('T')[0] : updatedShift.date.toISOString().split('T')[0],
+      date: formatDateString(updatedShift.date),
+      end_date: updatedShift.endDate ? formatDateString(updatedShift.endDate) : formatDateString(updatedShift.date),
       start_time: updatedShift.startTime,
       end_time: updatedShift.endTime,
       notes: updatedShift.description || null,
