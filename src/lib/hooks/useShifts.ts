@@ -49,7 +49,7 @@ interface UseShiftsReturn {
 }
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
-  const [shifts, setShifts] = useState<ShiftWithOrganization[]>([])
+  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage('shiftflow_shifts') || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -111,13 +111,16 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         if (fetchError) {
           setError(fetchError.message)
           setShifts([])
+          setToLocalStorage('shiftflow_shifts', [])
         } else {
           setShifts((data || []) as ShiftWithOrganization[])
+          setToLocalStorage('shiftflow_shifts', data || [])
         }
       } catch (err) {
         if (!isMounted) return
         setError('Failed to load shifts')
         setShifts([])
+        setToLocalStorage('shiftflow_shifts', [])
       }
     }
 
@@ -136,6 +139,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         } else {
           setUserId(null)
           setShifts([])
+          setToLocalStorage('shiftflow_shifts', [])
         }
       } catch (error) {
         console.error('Error in handleSession:', error)
@@ -269,6 +273,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     if (!fetchError && allShifts) {
       const shiftsData = allShifts as ShiftWithOrganization[]
       setShifts(shiftsData)
+      setToLocalStorage('shiftflow_shifts', shiftsData)
     }
 
     return data
@@ -321,6 +326,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     if (!fetchError && allShifts) {
       const shiftsData = allShifts as ShiftWithOrganization[]
       setShifts(shiftsData)
+      setToLocalStorage('shiftflow_shifts', shiftsData)
     }
 
     return true
@@ -368,6 +374,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     if (!fetchError && allShifts) {
       const shiftsData = allShifts as ShiftWithOrganization[]
       setShifts(shiftsData)
+      setToLocalStorage('shiftflow_shifts', shiftsData)
     }
 
     return true
