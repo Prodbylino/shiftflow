@@ -5,21 +5,8 @@ let supabaseInstance: SupabaseClient | null = null
 let instanceCreatedAt: number = 0
 
 export function createClient() {
-  const now = Date.now()
-
-  // Force recreate client if it's been more than 100ms since page load
-  // This ensures we get a fresh client after page refresh
-  if (typeof window !== 'undefined' && window.performance) {
-    const timeSincePageLoad = now - window.performance.timing.navigationStart
-    if (timeSincePageLoad < 5000 && supabaseInstance) {
-      // Within 5 seconds of page load, reset the instance to ensure fresh state
-      console.log('[Supabase] Resetting client instance after page load')
-      supabaseInstance = null
-    }
-  }
-
-  // If we already have a recent instance, return it
-  if (supabaseInstance && (now - instanceCreatedAt) < 60000) {
+  // If we already have an instance, return it
+  if (supabaseInstance) {
     return supabaseInstance
   }
 
@@ -37,7 +24,7 @@ export function createClient() {
     }
   )
 
-  instanceCreatedAt = now
+  instanceCreatedAt = Date.now()
 
   return supabaseInstance
 }

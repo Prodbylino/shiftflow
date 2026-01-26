@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, resetClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
 import { AuthChangeEvent } from '@supabase/supabase-js'
 
@@ -59,6 +59,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       loadingCompletedRef.current = true
       return
     }
+
+    // CRITICAL: Reset the Supabase client on mount to ensure fresh client after page refresh
+    console.log('[useOrganizations] Component mounted, resetting Supabase client')
+    resetClient()
 
     const supabase = createClient()
     let isMounted = true
