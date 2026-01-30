@@ -418,12 +418,27 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       console.log('[useShifts] Deleting shift from database (using userId from state), shift id:', id)
       console.log('[useShifts] About to execute DELETE query...')
 
-      const { error: deleteError } = await supabase
+      // Add timeout to detect hanging requests
+      const deletePromise = supabase
         .from('shifts')
         .delete()
         .eq('id', id)
 
-      console.log('[useShifts] DELETE query completed, error:', deleteError)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('DELETE query timeout after 10 seconds')), 10000)
+      })
+
+      let deleteError, deleteData
+      try {
+        const result = await Promise.race([deletePromise, timeoutPromise]) as any
+        deleteError = result.error
+        deleteData = result.data
+        console.log('[useShifts] DELETE query completed, error:', deleteError, 'data:', deleteData)
+      } catch (timeoutError: any) {
+        console.error('[useShifts] DELETE query TIMEOUT:', timeoutError.message)
+        setError('Request timeout - please check your connection')
+        return false
+      }
 
       if (deleteError) {
         console.error('[useShifts] Error deleting shift:', deleteError)
