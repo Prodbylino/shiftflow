@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { createClient, resetClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/database'
 import { AuthChangeEvent } from '@supabase/supabase-js'
 
@@ -70,10 +70,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       loadingCompletedRef.current = true
       return
     }
-
-    // CRITICAL: Reset the Supabase client on mount to ensure fresh client after page refresh
-    console.log('[useShifts] Component mounted, resetting Supabase client')
-    resetClient()
 
     const supabase = createClient()
     let isMounted = true
