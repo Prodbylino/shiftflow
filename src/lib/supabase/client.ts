@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 let supabaseInstance: SupabaseClient | null = null
@@ -6,12 +6,13 @@ let supabaseInstance: SupabaseClient | null = null
 export function createClient() {
   // If we already have an instance, return it
   if (supabaseInstance) {
+    console.log('[Supabase] Reusing existing client instance')
     return supabaseInstance
   }
 
-  console.log('[Supabase] Creating new client instance')
-  // Create a new instance
-  supabaseInstance = createBrowserClient(
+  console.log('[Supabase] Creating new client instance with supabase-js')
+  // Create a new instance using the standard supabase-js client
+  supabaseInstance = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -19,7 +20,8 @@ export function createClient() {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-      }
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      },
     }
   )
 
