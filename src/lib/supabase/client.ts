@@ -1,10 +1,17 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+let supabaseInstance: SupabaseClient | null = null
 
 export function createClient() {
-  console.log('[Supabase] Creating fresh client instance (no singleton)')
+  // If we already have an instance, return it
+  if (supabaseInstance) {
+    return supabaseInstance
+  }
 
-  // Always create a fresh client - no caching
-  return createBrowserClient(
+  console.log('[Supabase] Creating new client instance')
+  // Create a new instance
+  supabaseInstance = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -12,20 +19,14 @@ export function createClient() {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        storageKey: 'supabase.auth.token',
-      },
-      global: {
-        headers: {
-          'cache-control': 'no-cache',
-          'pragma': 'no-cache',
-        }
       }
     }
   )
+
+  return supabaseInstance
 }
 
-// Keep this for compatibility
 export function resetClient() {
-  console.log('[Supabase] resetClient called (no-op in non-singleton mode)')
+  console.log('[Supabase] Manually resetting client')
+  supabaseInstance = null
 }
