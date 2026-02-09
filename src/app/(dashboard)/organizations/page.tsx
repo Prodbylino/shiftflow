@@ -26,6 +26,7 @@ export default function OrganizationsPage() {
   const {
     organizations,
     loading: orgsLoading,
+    error: orgsError,
     createOrganization,
     updateOrganization,
     deleteOrganization,
@@ -57,7 +58,8 @@ export default function OrganizationsPage() {
       setNewOrgRate('')
       setNewOrgColor(colorOptions[0].value)
     } else {
-      toast.error(t('org.createFailed') || 'Failed to create organization')
+      const errorMsg = orgsError || 'Failed to create organization'
+      toast.error(errorMsg)
     }
   }
 
@@ -119,6 +121,19 @@ export default function OrganizationsPage() {
         </Link>
 
         <h1 className="text-4xl font-bold font-display mb-8">{t('org.manage')}</h1>
+
+        {/* Error Display */}
+        {orgsError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+            <p className="font-medium">Error: {orgsError}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              Refresh page
+            </button>
+          </div>
+        )}
 
         {/* Existing Organizations */}
         <div className="space-y-4 mb-8">

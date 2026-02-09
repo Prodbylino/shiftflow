@@ -36,7 +36,7 @@ const formatDateString = (date: Date): string => {
 export default function DashboardPage() {
   const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
   const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
-  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, refetch: refetchShifts } = useShifts()
+  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError, refetch: refetchShifts } = useShifts()
 
   // Transform DB organizations to calendar component format
   const calendarOrganizations: CalendarOrganization[] = useMemo(() => {
@@ -145,6 +145,19 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* Error Display */}
+      {shiftsError && (
+        <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+          <p className="font-medium">Error: {shiftsError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-2 text-sm underline hover:no-underline"
+          >
+            Refresh page
+          </button>
+        </div>
+      )}
 
       {/* Main Content - Calendar fills remaining space */}
       <main className="flex-1 p-2 md:p-4 overflow-auto">

@@ -139,7 +139,7 @@ export function useAuth(): UseAuthReturn {
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
           sessionHandledRef.current = false // Allow re-handling for actual auth changes
           await handleSession(session, 'auth_change')
-        } else if (event === 'INITIAL_SESSION' && !sessionHandledRef.current) {
+        } else if (event === 'INITIAL_SESSION') {
           await handleSession(session, 'auth_change')
         }
       }

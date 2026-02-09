@@ -144,7 +144,7 @@ export function useOrganizations(): UseOrganizationsReturn {
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
           sessionHandledRef.current = false
           await handleSession(session, 'auth_change')
-        } else if (event === 'INITIAL_SESSION' && !sessionHandledRef.current) {
+        } else if (event === 'INITIAL_SESSION') {
           await handleSession(session, 'auth_change')
         }
       }
@@ -192,16 +192,29 @@ export function useOrganizations(): UseOrganizationsReturn {
 
     const supabase = createClient()
 
-    // Get current session to ensure we have the user_id
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user?.id) {
+    // Use getUser() to validate session with server
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError || !user?.id) {
+      console.error('[useOrganizations] No valid user:', userError)
+      // Fallback to getSession
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) {
+        setError('Not authenticated')
+        return null
+      }
+    }
+    
+    const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
+    
+    if (!effectiveUserId) {
       setError('Not authenticated')
       return null
     }
 
     const { data, error: createError } = await supabase
       .from('organizations')
-      .insert({ ...org, user_id: session.user.id })
+      .insert({ ...org, user_id: effectiveUserId })
       .select()
       .single()
 
