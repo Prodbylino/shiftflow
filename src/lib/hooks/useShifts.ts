@@ -321,24 +321,16 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       console.log('[useShifts] Shift created successfully:', data)
 
-      // Re-fetch all shifts from database
-      console.log('[useShifts] Re-fetching all shifts...')
-      const { data: allShifts, error: fetchError } = await supabase
-        .from('shifts')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', effectiveUserId)
-        .order('date', { ascending: true })
-
-      if (!fetchError && allShifts) {
-        console.log('[useShifts] Re-fetched', allShifts.length, 'shifts, updating state')
-        const shiftsData = allShifts as ShiftWithOrganization[]
-        setShifts(shiftsData)
-        setToLocalStorage('shiftflow_shifts', shiftsData)
-      } else if (fetchError) {
-        console.error('[useShifts] Error re-fetching shifts:', fetchError)
+      // Update local state directly instead of re-fetching all
+      // This avoids network delays and timeouts
+      if (data) {
+        const newShift = data as ShiftWithOrganization
+        const updatedShifts = [...shifts, newShift].sort((a, b) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        )
+        setShifts(updatedShifts)
+        setToLocalStorage('shiftflow_shifts', updatedShifts)
+        console.log('[useShifts] Local state updated with new shift')
       }
 
       console.log('[useShifts] createShift END')
@@ -402,24 +394,17 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       console.log('[useShifts] Shift updated successfully:', data)
 
-      // Re-fetch all shifts from database
-      console.log('[useShifts] Re-fetching all shifts...')
-      const { data: allShifts, error: fetchError } = await supabase
-        .from('shifts')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', effectiveUserId)
-        .order('date', { ascending: true })
-
-      if (!fetchError && allShifts) {
-        console.log('[useShifts] Re-fetched', allShifts.length, 'shifts, updating state')
-        const shiftsData = allShifts as ShiftWithOrganization[]
-        setShifts(shiftsData)
-        setToLocalStorage('shiftflow_shifts', shiftsData)
-      } else if (fetchError) {
-        console.error('[useShifts] Error re-fetching shifts:', fetchError)
+      // Update local state directly instead of re-fetching all
+      if (data) {
+        const updatedShift = data as ShiftWithOrganization
+        const updatedShifts = shifts.map(s => 
+          s.id === id ? updatedShift : s
+        ).sort((a, b) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        )
+        setShifts(updatedShifts)
+        setToLocalStorage('shiftflow_shifts', updatedShifts)
+        console.log('[useShifts] Local state updated with edited shift')
       }
 
       console.log('[useShifts] updateShift END')
@@ -480,25 +465,11 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       console.log('[useShifts] Shift deleted successfully')
 
-      // Re-fetch all shifts from database to ensure we have the latest data
-      console.log('[useShifts] Re-fetching all shifts...')
-      const { data: allShifts, error: fetchError } = await supabase
-        .from('shifts')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', effectiveUserId)
-        .order('date', { ascending: true })
-
-      if (!fetchError && allShifts) {
-        console.log('[useShifts] Re-fetched', allShifts.length, 'shifts, updating state')
-        const shiftsData = allShifts as ShiftWithOrganization[]
-        setShifts(shiftsData)
-        setToLocalStorage('shiftflow_shifts', shiftsData)
-      } else if (fetchError) {
-        console.error('[useShifts] Error re-fetching shifts:', fetchError)
-      }
+      // Update local state directly by removing the deleted shift
+      const updatedShifts = shifts.filter(s => s.id !== id)
+      setShifts(updatedShifts)
+      setToLocalStorage('shiftflow_shifts', updatedShifts)
+      console.log('[useShifts] Local state updated, removed shift:', id)
 
       console.log('[useShifts] deleteShift END')
       return true

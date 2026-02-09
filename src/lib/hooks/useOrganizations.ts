@@ -219,10 +219,12 @@ export function useOrganizations(): UseOrganizationsReturn {
       .single()
 
     if (createError) {
+      console.error('[useOrganizations] Error creating:', createError)
       setError(createError.message)
       return null
     }
 
+    console.log('[useOrganizations] Organization created:', data)
     const updatedOrgs = [data, ...organizations]
     setOrganizations(updatedOrgs)
     setToLocalStorage('shiftflow_orgs', updatedOrgs)
