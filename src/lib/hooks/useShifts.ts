@@ -315,7 +315,11 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       if (createError) {
         console.error('[useShifts] Error creating shift:', createError)
-        setError(createError.message)
+        if (createError.message?.includes('timeout')) {
+          setError('Request timed out. Please check your connection and try again.')
+        } else {
+          setError(createError.message)
+        }
         return null
       }
 
@@ -376,10 +380,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       console.log('[useShifts] Updating shift in database')
 
+      // Include user_id in the query to help RLS policy and use index
       const { data, error: updateError } = await supabase
         .from('shifts')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', effectiveUserId)
         .select(`
           *,
           organization:organizations(*)
@@ -388,7 +394,11 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       if (updateError) {
         console.error('[useShifts] Error updating shift:', updateError)
-        setError(updateError.message)
+        if (updateError.message?.includes('timeout')) {
+          setError('Request timed out. Please check your connection and try again.')
+        } else {
+          setError(updateError.message)
+        }
         return false
       }
 
@@ -450,20 +460,27 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       console.log('[useShifts] Deleting shift from database, shift id:', id)
 
-      // Note: RLS policy already ensures user can only delete their own shifts
-      // So we only need to match by id, not user_id
-      const { error: deleteError } = await supabase
+      // Include user_id in the query to help RLS policy and use index
+      const { error: deleteError, data: deletedData } = await supabase
         .from('shifts')
         .delete()
         .eq('id', id)
+        .eq('user_id', effectiveUserId)
+        .select('id')
+        .single()
 
       if (deleteError) {
         console.error('[useShifts] Error deleting shift:', deleteError)
-        setError(deleteError.message)
+        // Check if it's a timeout error
+        if (deleteError.message?.includes('timeout')) {
+          setError('Request timed out. Please check your connection and try again.')
+        } else {
+          setError(deleteError.message)
+        }
         return false
       }
 
-      console.log('[useShifts] Shift deleted successfully')
+      console.log('[useShifts] Shift deleted successfully:', deletedData)
 
       // Update local state directly by removing the deleted shift
       const updatedShifts = shifts.filter(s => s.id !== id)

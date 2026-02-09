@@ -220,7 +220,11 @@ export function useOrganizations(): UseOrganizationsReturn {
 
     if (createError) {
       console.error('[useOrganizations] Error creating:', createError)
-      setError(createError.message)
+      if (createError.message?.includes('timeout')) {
+        setError('Request timed out. Please check your connection and try again.')
+      } else {
+        setError(createError.message)
+      }
       return null
     }
 
