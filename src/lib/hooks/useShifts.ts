@@ -172,29 +172,48 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const syncShiftsForUser = useCallback(async (uid: string): Promise<boolean> => {
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:173',message:'syncShiftsForUser START',data:{uid:uid,currentShiftsCount:shifts.length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       const { data, error: fetchError } = await runWithTimeout(
         queryShiftsForUser(uid),
         'fetch shifts'
       )
 
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:180',message:'syncShiftsForUser response',data:{hasData:!!data,dataCount:data?.length,hasError:!!fetchError,errorMessage:fetchError?.message,errorCode:fetchError?.code},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
+
       if (fetchError) {
         const message = formatSupabaseError(fetchError, 'Failed to load shifts')
         console.error('[useShifts] Error fetching shifts:', fetchError)
         setError(message)
-        applyFetchedShifts([])
+        // CRITICAL FIX: Don't clear existing shifts on fetch error - preserve current state
+        // Only clear on initial load, not on sync after mutation
+        // applyFetchedShifts([]) // REMOVED - this was wiping out the calendar
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:188',message:'syncShiftsForUser error - preserving existing shifts',data:{preservedShiftsCount:shifts.length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         return false
       }
 
       setError(null)
       applyFetchedShifts((data || []) as ShiftWithOrganization[])
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:194',message:'syncShiftsForUser success',data:{newShiftsCount:(data || []).length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return true
     } catch (err) {
       console.error('[useShifts] Exception while fetching shifts:', err)
       setError('Failed to load shifts')
-      applyFetchedShifts([])
+      // CRITICAL FIX: Don't clear existing shifts on exception - preserve current state
+      // applyFetchedShifts([]) // REMOVED - this was wiping out the calendar
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:201',message:'syncShiftsForUser exception - preserving existing shifts',data:{preservedShiftsCount:shifts.length,error:String(err)},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       return false
     }
-  }, [queryShiftsForUser, applyFetchedShifts])
+  }, [queryShiftsForUser, applyFetchedShifts, shifts.length])
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
@@ -218,6 +237,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
     const fetchShiftsData = async (uid: string) => {
       console.log('[useShifts] Fetching shifts for user:', uid)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:219',message:'fetchShiftsData START',data:{uid:uid,currentShiftsCount:shifts.length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
 
       try {
         const { data, error: fetchError } = await runWithTimeout(
@@ -227,20 +249,48 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
         if (!isMounted) return
 
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:228',message:'fetchShiftsData response',data:{hasData:!!data,dataCount:data?.length,hasError:!!fetchError,errorMessage:fetchError?.message,errorCode:fetchError?.code},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+
         if (fetchError) {
           console.error('[useShifts] Error fetching shifts:', fetchError)
           setError(formatSupabaseError(fetchError, 'Failed to load shifts'))
-          applyFetchedShifts([])
+          // CRITICAL FIX: Only clear shifts on initial load (when shifts.length is 0)
+          // Don't clear existing shifts on refresh errors - preserve current state
+          if (shifts.length === 0) {
+            applyFetchedShifts([])
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:237',message:'fetchShiftsData error - clearing (initial load)',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
+          } else {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:241',message:'fetchShiftsData error - preserving existing shifts',data:{preservedShiftsCount:shifts.length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+            // #endregion
+          }
         } else {
           console.log('[useShifts] Fetched shifts from DB:', data?.length || 0, 'shifts')
           setError(null)
           applyFetchedShifts((data || []) as ShiftWithOrganization[])
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:248',message:'fetchShiftsData success',data:{newShiftsCount:(data || []).length},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
         }
       } catch (err) {
         if (!isMounted) return
         console.error('[useShifts] Exception while fetching shifts:', err)
         setError('Failed to load shifts')
-        applyFetchedShifts([])
+        // CRITICAL FIX: Only clear shifts on initial load
+        if (shifts.length === 0) {
+          applyFetchedShifts([])
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:258',message:'fetchShiftsData exception - clearing (initial load)',data:{error:String(err)},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+        } else {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:262',message:'fetchShiftsData exception - preserving existing shifts',data:{preservedShiftsCount:shifts.length,error:String(err)},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+          // #endregion
+        }
       }
     }
 
@@ -448,10 +498,26 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       setError(null)
 
       const supabase = createClient()
+      
+      // CRITICAL FIX: Verify session exists before attempting insert
+      const { data: { session: verifySession } } = await supabase.auth.getSession()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:377',message:'createShift verifying session',data:{hasSession:!!verifySession,sessionUserId:verifySession?.user?.id,matchesEffectiveUserId:verifySession?.user?.id === effectiveUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
+      if (!verifySession || verifySession.user.id !== effectiveUserId) {
+        console.error('[useShifts] Session mismatch or missing in Supabase client')
+        setError('Session expired, please refresh the page')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:383',message:'createShift blocked: session mismatch',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+        // #endregion
+        return null
+      }
+
       const insertPayload = { ...shift, user_id: effectiveUserId }
       console.log('[useShifts] Inserting shift to database:', insertPayload)
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:377',message:'createShift inserting to database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:390',message:'createShift inserting to database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId,hasValidSession:true},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
 
       const createResponse = await runWithTimeout(
@@ -460,20 +526,30 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           .insert(insertPayload)
           .select('*')
           .single(),
-        'create shift'
+        'create shift',
+        10000 // Shorter timeout for create (10s)
       ) as CreateShiftResponse
       const { data, error: createError } = createResponse
 
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:388',message:'createShift database response',data:{hasData:!!data,hasError:!!createError,errorMessage:createError?.message},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:402',message:'createShift database response',data:{hasData:!!data,dataId:data?.id,hasError:!!createError,errorMessage:createError?.message,errorCode:createError?.code,errorDetails:createError?.details},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
 
       if (createError) {
         console.error('[useShifts] Error creating shift:', createError)
         setError(formatSupabaseError(createError, 'Failed to create shift'))
+        // CRITICAL FIX: Don't sync on error - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED - this was causing issues
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:410',message:'createShift error - not syncing to preserve state',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         return null
       }
 
+      // Only sync if create was successful
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:416',message:'createShift success - syncing shifts',data:{createdShiftId:data?.id},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       await syncShiftsForUser(effectiveUserId)
 
       console.log('[useShifts] createShift END')
@@ -563,9 +639,25 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       setError(null)
 
       const supabase = createClient()
+      
+      // CRITICAL FIX: Verify session exists before attempting delete
+      const { data: { session: verifySession } } = await supabase.auth.getSession()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:565',message:'deleteShift verifying session',data:{hasSession:!!verifySession,sessionUserId:verifySession?.user?.id,matchesEffectiveUserId:verifySession?.user?.id === effectiveUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+      // #endregion
+      
+      if (!verifySession || verifySession.user.id !== effectiveUserId) {
+        console.error('[useShifts] Session mismatch or missing in Supabase client')
+        setError('Session expired, please refresh the page')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:571',message:'deleteShift blocked: session mismatch',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+        // #endregion
+        return false
+      }
+
       console.log('[useShifts] Deleting shift from database, shift id:', id)
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:473',message:'deleteShift deleting from database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId,shiftId:id},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:576',message:'deleteShift deleting from database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId,shiftId:id,hasValidSession:true},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
 
       const deleteResponse = await runWithTimeout(
@@ -574,25 +666,40 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
           .delete({ count: 'exact' })
           .eq('id', id)
           .eq('user_id', effectiveUserId),
-        'delete shift'
+        'delete shift',
+        10000 // Shorter timeout for delete (10s)
       ) as MutationCountResponse
       const { error: deleteError, count } = deleteResponse
 
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:485',message:'deleteShift database response',data:{count:count,hasError:!!deleteError,errorMessage:deleteError?.message},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:589',message:'deleteShift database response',data:{count:count,hasError:!!deleteError,errorMessage:deleteError?.message,errorCode:deleteError?.code,errorDetails:deleteError?.details},timestamp:Date.now(),runId:'run2',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
 
       if (deleteError) {
         console.error('[useShifts] Error deleting shift:', deleteError)
         setError(formatSupabaseError(deleteError, 'Failed to delete shift'))
+        // CRITICAL FIX: Don't sync on error - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED - this was causing calendar wipeout
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:595',message:'deleteShift error - not syncing to preserve state',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         return false
       }
 
-      if (!count) {
+      if (!count || count === 0) {
         setError('Shift not found or permission denied')
+        // CRITICAL FIX: Don't sync on not found - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:602',message:'deleteShift not found - not syncing to preserve state',data:{count:count},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         return false
       }
 
+      // Only sync if delete was successful
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:608',message:'deleteShift success - syncing shifts',data:{deletedCount:count},timestamp:Date.now(),runId:'run2',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       await syncShiftsForUser(effectiveUserId)
 
       console.log('[useShifts] deleteShift END')
