@@ -52,14 +52,17 @@ export function useAnalytics(): UseAnalyticsReturn {
     }
 
     const supabase = createClient()
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => {
+    const loadUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
         setUserId(user?.id ?? null)
-      })
-      .catch(() => {
+      } catch {
         // Handle auth errors gracefully
         setUserId(null)
-      })
+      }
+    }
+
+    loadUser()
   }, [supabaseConfigured])
 
   const getMonthlySummary = useCallback(async (year: number, month: number): Promise<MonthlySummary[]> => {

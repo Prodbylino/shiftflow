@@ -1,22 +1,32 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+let browserClient: ReturnType<typeof createBrowserClient> | undefined
+
 export function createClient() {
-  console.log('[Supabase] Creating new client instance')
-  // Always create a fresh client to avoid stale connection issues
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
+  if (typeof window === 'undefined') {
+    throw new Error('createClient() can only be called on the client side')
+  }
+
+  // Use singleton pattern but ensure it's properly initialized
+  // createBrowserClient automatically reads from cookies, so we don't need to reset it
+  if (!browserClient) {
+    browserClient = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+          storage: window.localStorage,
+        },
       }
-    }
-  )
+    )
+  }
+
+  return browserClient
 }
 
-// Kept for backward compatibility, but no longer needed
 export function resetClient() {
-  console.log('[Supabase] Client reset called (no-op with new implementation)')
+  browserClient = undefined
 }

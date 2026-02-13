@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
-import { AuthChangeEvent } from '@supabase/supabase-js'
+import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -127,18 +127,20 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
 
     // Get initial session immediately - this reads from cookies
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        handleSession(session, 'get_session')
-      })
-      .catch((error) => {
+    const loadInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await handleSession(session, 'get_session')
+      } catch (error) {
         console.error('Error getting session:', error)
         completeLoading()
-      })
+      }
+    }
+    loadInitialSession()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
 
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
