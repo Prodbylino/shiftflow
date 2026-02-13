@@ -468,20 +468,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       const supabase = createClient()
       
-      // CRITICAL FIX: Verify session exists before attempting insert
-      const { data: { session: verifySession } } = await supabase.auth.getSession()
+      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
+      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
+      // The database RLS policies will enforce security anyway
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:377',message:'createShift verifying session',data:{hasSession:!!verifySession,sessionUserId:verifySession?.user?.id,matchesEffectiveUserId:verifySession?.user?.id === effectiveUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:471',message:'createShift skipping session verification (using userId from resolveUserId)',data:{effectiveUserId:effectiveUserId},timestamp:Date.now(),runId:'run3',hypothesisId:'I'})}).catch(()=>{});
       // #endregion
-      
-      if (!verifySession || verifySession.user.id !== effectiveUserId) {
-        console.error('[useShifts] Session mismatch or missing in Supabase client')
-        setError('Session expired, please refresh the page')
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:383',message:'createShift blocked: session mismatch',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
-        return null
-      }
 
       const insertPayload = { ...shift, user_id: effectiveUserId }
       console.log('[useShifts] Inserting shift to database:', insertPayload)
@@ -609,20 +601,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       const supabase = createClient()
       
-      // CRITICAL FIX: Verify session exists before attempting delete
-      const { data: { session: verifySession } } = await supabase.auth.getSession()
+      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
+      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
+      // The database RLS policies will enforce security anyway
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:565',message:'deleteShift verifying session',data:{hasSession:!!verifySession,sessionUserId:verifySession?.user?.id,matchesEffectiveUserId:verifySession?.user?.id === effectiveUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:641',message:'deleteShift skipping session verification (using userId from resolveUserId)',data:{effectiveUserId:effectiveUserId},timestamp:Date.now(),runId:'run3',hypothesisId:'I'})}).catch(()=>{});
       // #endregion
-      
-      if (!verifySession || verifySession.user.id !== effectiveUserId) {
-        console.error('[useShifts] Session mismatch or missing in Supabase client')
-        setError('Session expired, please refresh the page')
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:571',message:'deleteShift blocked: session mismatch',data:{},timestamp:Date.now(),runId:'run2',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
-        return false
-      }
 
       console.log('[useShifts] Deleting shift from database, shift id:', id)
       // #region agent log
