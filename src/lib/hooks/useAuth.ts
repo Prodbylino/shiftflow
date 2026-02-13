@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { Profile } from '@/types/database'
@@ -33,8 +33,6 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const sessionHandledRef = useRef(false)
-  const loadingCompletedRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
@@ -62,31 +60,22 @@ export function useAuth(): UseAuthReturn {
   }, [user, fetchProfile, supabaseConfigured])
 
   useEffect(() => {
-    // If Supabase is not configured, just set loading to false
     if (!supabaseConfigured) {
       setLoading(false)
-      loadingCompletedRef.current = true
       return
     }
 
     const supabase = createClient()
     let isMounted = true
-    sessionHandledRef.current = false
-    loadingCompletedRef.current = false
 
     const completeLoading = () => {
-      if (isMounted && !loadingCompletedRef.current) {
+      if (isMounted) {
         setLoading(false)
-        loadingCompletedRef.current = true
       }
     }
 
-    const handleSession = async (session: { user: User } | null, source: string) => {
+    const handleSession = async (session: Session | null) => {
       if (!isMounted) return
-
-      // Prevent duplicate handling
-      if (sessionHandledRef.current && source !== 'auth_change') return
-      sessionHandledRef.current = true
 
       try {
         if (session?.user) {
@@ -108,11 +97,10 @@ export function useAuth(): UseAuthReturn {
       }
     }
 
-    // Get initial session immediately - this reads from cookies
     const loadInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        await handleSession(session, 'get_session')
+        await handleSession(session)
       } catch (error) {
         console.error('Error getting session:', error)
         completeLoading()
@@ -120,24 +108,29 @@ export function useAuth(): UseAuthReturn {
     }
     loadInitialSession()
 
-    // Listen for auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
 
-        // Only handle meaningful auth state changes, not token refreshes on focus
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          sessionHandledRef.current = false // Allow re-handling for actual auth changes
-          await handleSession(session, 'auth_change')
-        } else if (event === 'INITIAL_SESSION') {
-          await handleSession(session, 'auth_change')
+        if (
+          event === 'SIGNED_IN' ||
+          event === 'SIGNED_OUT' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'INITIAL_SESSION'
+        ) {
+          await handleSession(session)
         }
       }
     )
 
+    const timeout = setTimeout(() => {
+      completeLoading()
+    }, 6000)
+
     return () => {
       isMounted = false
       subscription.unsubscribe()
+      clearTimeout(timeout)
     }
   }, [supabaseConfigured, fetchProfile])
 

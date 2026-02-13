@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
@@ -47,28 +47,21 @@ export function useOrganizations(): UseOrganizationsReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const sessionHandledRef = useRef(false)
-  const loadingCompletedRef = useRef(false)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
-  // Use onAuthStateChange for session detection
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
-      loadingCompletedRef.current = true
       return
     }
 
     const supabase = createClient()
     let isMounted = true
-    sessionHandledRef.current = false
-    loadingCompletedRef.current = false
 
     const completeLoading = () => {
-      if (isMounted && !loadingCompletedRef.current) {
+      if (isMounted) {
         setLoading(false)
-        loadingCompletedRef.current = true
       }
     }
 
@@ -101,17 +94,12 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     }
 
-    const handleSession = async (session: { user: { id: string } } | null, source: string) => {
+    const handleSession = async (session: Session | null) => {
       if (!isMounted) return
-
-      // Prevent duplicate handling
-      if (sessionHandledRef.current && source !== 'auth_change') return
-      sessionHandledRef.current = true
 
       try {
         if (session?.user) {
           setUserId(session.user.id)
-          // Fetch organizations and wait for completion
           await fetchOrgs(session.user.id)
         } else {
           setUserId(null)
@@ -126,11 +114,10 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     }
 
-    // Get initial session immediately - this reads from cookies
     const loadInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        await handleSession(session, 'get_session')
+        await handleSession(session)
       } catch (error) {
         console.error('Error getting session:', error)
         completeLoading()
@@ -138,23 +125,29 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
     loadInitialSession()
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
 
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          sessionHandledRef.current = false
-          await handleSession(session, 'auth_change')
-        } else if (event === 'INITIAL_SESSION') {
-          await handleSession(session, 'auth_change')
+        if (
+          event === 'SIGNED_IN' ||
+          event === 'SIGNED_OUT' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'INITIAL_SESSION'
+        ) {
+          await handleSession(session)
         }
       }
     )
 
+    const timeout = setTimeout(() => {
+      completeLoading()
+    }, 6000)
+
     return () => {
       isMounted = false
       subscription.unsubscribe()
+      clearTimeout(timeout)
     }
   }, [supabaseConfigured])
 

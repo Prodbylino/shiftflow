@@ -184,9 +184,14 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       }
     )
 
+    const timeout = setTimeout(() => {
+      finishLoading()
+    }, 6000)
+
     return () => {
       isMounted = false
       subscription.unsubscribe()
+      clearTimeout(timeout)
     }
   }, [applyShifts, fetchShiftsForUser, supabaseConfigured])
 
