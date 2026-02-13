@@ -128,7 +128,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage(SHIFTS_STORAGE_KEY) || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  // CRITICAL FIX: Initialize userId from localStorage to avoid needing API calls after refresh
+  // This ensures userId is available immediately, avoiding all timeout issues
+  const [userId, setUserId] = useState<string | null>(() => {
+    const storedUser = getFromLocalStorage('shiftflow_user')
+    return storedUser?.id || null
+  })
   const sessionHandledRef = useRef(false)
   const loadingCompletedRef = useRef(false)
 
