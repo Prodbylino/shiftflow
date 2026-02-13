@@ -115,6 +115,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     }
 
     const sessionUserId = session?.user?.id || null
+    if (!sessionUserId) {
+      console.warn('[useShifts] requireUserId: no session user found')
+    }
     if (sessionUserId) {
       setUserId(sessionUserId)
     }
@@ -181,14 +184,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       }
     )
 
-    const timeout = setTimeout(() => {
-      finishLoading()
-    }, 3000)
-
     return () => {
       isMounted = false
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [applyShifts, fetchShiftsForUser, supabaseConfigured])
 

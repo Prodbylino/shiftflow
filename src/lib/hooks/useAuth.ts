@@ -12,17 +12,6 @@ const isSupabaseConfigured = () => {
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
-// Helper to safely access localStorage (only on client-side)
-const getFromLocalStorage = (key: string) => {
-  if (typeof window === 'undefined') return null
-  try {
-    const item = localStorage.getItem(key)
-    return item ? JSON.parse(item) : null
-  } catch {
-    return null
-  }
-}
-
 const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
@@ -41,9 +30,8 @@ interface UseAuthReturn {
 }
 
 export function useAuth(): UseAuthReturn {
-  // Initialize from localStorage, but always start with loading=true
-  const [user, setUser] = useState<User | null>(() => getFromLocalStorage('shiftflow_user'))
-  const [profile, setProfile] = useState<Profile | null>(() => getFromLocalStorage('shiftflow_profile'))
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const sessionHandledRef = useRef(false)
   const loadingCompletedRef = useRef(false)
@@ -147,15 +135,9 @@ export function useAuth(): UseAuthReturn {
       }
     )
 
-    // Safety timeout - ensure loading completes within 3 seconds
-    const timeout = setTimeout(() => {
-      completeLoading()
-    }, 3000)
-
     return () => {
       isMounted = false
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [supabaseConfigured, fetchProfile])
 

@@ -152,15 +152,9 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     )
 
-    // Safety timeout - ensure loading completes within 3 seconds
-    const timeout = setTimeout(() => {
-      completeLoading()
-    }, 3000)
-
     return () => {
       isMounted = false
       subscription.unsubscribe()
-      clearTimeout(timeout)
     }
   }, [supabaseConfigured])
 
