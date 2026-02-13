@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/database'
-import { AuthChangeEvent } from '@supabase/supabase-js'
+import { AuthChangeEvent, Session } from '@supabase/supabase-js'
+
+const SHIFTS_STORAGE_KEY = 'shiftflow_shifts'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -23,12 +25,86 @@ const getFromLocalStorage = (key: string) => {
   }
 }
 
-const setToLocalStorage = (key: string, value: any) => {
+const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Ignore localStorage errors
+  }
+}
+
+const formatSupabaseError = (error: unknown, fallback: string): string => {
+  if (!error || typeof error !== 'object') {
+    return fallback
+  }
+
+  const parsed = error as {
+    message?: string
+    code?: string
+    details?: string
+    hint?: string
+  }
+
+  if (!parsed.message) {
+    return fallback
+  }
+
+  const extra: string[] = []
+  if (parsed.code) extra.push(`code=${parsed.code}`)
+  if (parsed.details) extra.push(`details=${parsed.details}`)
+  if (parsed.hint) extra.push(`hint=${parsed.hint}`)
+
+  return extra.length > 0 ? `${parsed.message} (${extra.join(', ')})` : parsed.message
+}
+
+type SupabaseErrorLike = {
+  message?: string
+  code?: string
+  details?: string
+  hint?: string
+}
+
+type AuthUserResponse = {
+  data: { user: { id: string } | null }
+  error: SupabaseErrorLike | null
+}
+
+type AuthSessionResponse = {
+  data: { session: { user: { id: string } } | null }
+  error: SupabaseErrorLike | null
+}
+
+type MutationCountResponse = {
+  error: SupabaseErrorLike | null
+  count: number | null
+}
+
+type CreateShiftResponse = {
+  data: Shift | null
+  error: SupabaseErrorLike | null
+}
+
+const runWithTimeout = async <T>(
+  operation: PromiseLike<T>,
+  label: string,
+  timeoutMs = 15000
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race<T>([
+      Promise.resolve(operation),
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+        }, timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 
@@ -49,7 +125,7 @@ interface UseShiftsReturn {
 }
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
-  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage('shiftflow_shifts') || [])
+  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage(SHIFTS_STORAGE_KEY) || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -62,6 +138,63 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const startDateStr = options?.startDate?.toISOString()
   const endDateStr = options?.endDate?.toISOString()
   const organizationId = options?.organizationId
+
+  const applyFetchedShifts = useCallback((data: ShiftWithOrganization[] | null | undefined) => {
+    const next = (data || []) as ShiftWithOrganization[]
+    setShifts(next)
+    setToLocalStorage(SHIFTS_STORAGE_KEY, next)
+  }, [])
+
+  const queryShiftsForUser = useCallback(async (uid: string) => {
+    const supabase = createClient()
+
+    let query = supabase
+      .from('shifts')
+      .select(`
+        *,
+        organization:organizations(*)
+      `)
+      .eq('user_id', uid)
+      .order('date', { ascending: true })
+
+    if (startDateStr) {
+      query = query.gte('date', startDateStr.split('T')[0])
+    }
+    if (endDateStr) {
+      query = query.lte('date', endDateStr.split('T')[0])
+    }
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+
+    return query
+  }, [startDateStr, endDateStr, organizationId])
+
+  const syncShiftsForUser = useCallback(async (uid: string): Promise<boolean> => {
+    try {
+      const { data, error: fetchError } = await runWithTimeout(
+        queryShiftsForUser(uid),
+        'fetch shifts'
+      )
+
+      if (fetchError) {
+        const message = formatSupabaseError(fetchError, 'Failed to load shifts')
+        console.error('[useShifts] Error fetching shifts:', fetchError)
+        setError(message)
+        applyFetchedShifts([])
+        return false
+      }
+
+      setError(null)
+      applyFetchedShifts((data || []) as ShiftWithOrganization[])
+      return true
+    } catch (err) {
+      console.error('[useShifts] Exception while fetching shifts:', err)
+      setError('Failed to load shifts')
+      applyFetchedShifts([])
+      return false
+    }
+  }, [queryShiftsForUser, applyFetchedShifts])
 
   // Use onAuthStateChange for session detection
   useEffect(() => {
@@ -85,56 +218,46 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
     const fetchShiftsData = async (uid: string) => {
       console.log('[useShifts] Fetching shifts for user:', uid)
+
       try {
-        let query = supabase
-          .from('shifts')
-          .select(`
-            *,
-            organization:organizations(*)
-          `)
-          .eq('user_id', uid)
-          .order('date', { ascending: true })
-
-        if (startDateStr) {
-          query = query.gte('date', startDateStr.split('T')[0])
-        }
-        if (endDateStr) {
-          query = query.lte('date', endDateStr.split('T')[0])
-        }
-        if (organizationId) {
-          query = query.eq('organization_id', organizationId)
-        }
-
-        const { data, error: fetchError } = await query
+        const { data, error: fetchError } = await runWithTimeout(
+          queryShiftsForUser(uid),
+          'fetch shifts'
+        )
 
         if (!isMounted) return
 
         if (fetchError) {
           console.error('[useShifts] Error fetching shifts:', fetchError)
-          setError(fetchError.message)
-          setShifts([])
-          setToLocalStorage('shiftflow_shifts', [])
+          setError(formatSupabaseError(fetchError, 'Failed to load shifts'))
+          applyFetchedShifts([])
         } else {
           console.log('[useShifts] Fetched shifts from DB:', data?.length || 0, 'shifts')
-          setShifts((data || []) as ShiftWithOrganization[])
-          setToLocalStorage('shiftflow_shifts', data || [])
+          setError(null)
+          applyFetchedShifts((data || []) as ShiftWithOrganization[])
         }
       } catch (err) {
         if (!isMounted) return
+        console.error('[useShifts] Exception while fetching shifts:', err)
         setError('Failed to load shifts')
-        setShifts([])
-        setToLocalStorage('shiftflow_shifts', [])
+        applyFetchedShifts([])
       }
     }
 
     const handleSession = async (session: { user: { id: string } } | null, source: string) => {
       if (!isMounted) return
 
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:247',message:'handleSession called',data:{source:source,sessionUserId:session?.user?.id,alreadyHandled:sessionHandledRef.current},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       console.log('[useShifts] handleSession called from:', source, 'userId:', session?.user?.id)
 
       // Prevent duplicate handling
       if (sessionHandledRef.current && source !== 'auth_change') {
         console.log('[useShifts] Session already handled, skipping')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:254',message:'handleSession skipped (duplicate)',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         return
       }
       sessionHandledRef.current = true
@@ -143,35 +266,43 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         if (session?.user) {
           console.log('[useShifts] User authenticated, setting userId:', session.user.id)
           setUserId(session.user.id)
-          // Fetch shifts and wait for completion
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:262',message:'handleSession setting userId',data:{userId:session.user.id},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
           await fetchShiftsData(session.user.id)
         } else {
           console.log('[useShifts] No session, clearing data')
           setUserId(null)
-          setShifts([])
-          setToLocalStorage('shiftflow_shifts', [])
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:267',message:'handleSession no session, clearing userId',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+          // #endregion
+          applyFetchedShifts([])
         }
-      } catch (error) {
-        console.error('Error in handleSession:', error)
+      } catch (sessionError) {
+        console.error('[useShifts] Error in handleSession:', sessionError)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:271',message:'handleSession error',data:{error:String(sessionError)},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
       } finally {
-        // Always complete loading, even if there's an error
         completeLoading()
       }
     }
 
     // Get initial session immediately - this reads from cookies
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        handleSession(session, 'get_session')
-      })
-      .catch((error) => {
-        console.error('Error getting session:', error)
+    const loadInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await handleSession(session, 'get_session')
+      } catch (sessionError) {
+        console.error('[useShifts] Error getting session:', sessionError)
         completeLoading()
-      })
+      }
+    }
+    loadInitialSession()
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session) => {
+      async (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
 
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
@@ -193,154 +324,155 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [supabaseConfigured, startDateStr, endDateStr, organizationId])
+  }, [supabaseConfigured, queryShiftsForUser, applyFetchedShifts])
 
   const fetchShifts = useCallback(async () => {
     if (!userId || !supabaseConfigured) {
       return
     }
-    setError(null)
 
-    try {
-      const supabase = createClient()
-      let query = supabase
-        .from('shifts')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', userId)
-        .order('date', { ascending: true })
+    await syncShiftsForUser(userId)
+  }, [userId, supabaseConfigured, syncShiftsForUser])
 
-      if (startDateStr) {
-        query = query.gte('date', startDateStr.split('T')[0])
-      }
-      if (endDateStr) {
-        query = query.lte('date', endDateStr.split('T')[0])
-      }
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      }
-
-      const { data, error: fetchError } = await query
-
-      if (fetchError) {
-        setError(fetchError.message)
-      } else {
-        setShifts((data || []) as ShiftWithOrganization[])
-      }
-    } catch (err) {
-      setError('Failed to fetch shifts')
-    }
-  }, [userId, supabaseConfigured, startDateStr, endDateStr, organizationId])
-
-  const resolveUserId = async () => {
-    console.log('[useShifts] resolveUserId called, current userId:', userId)
+  const resolveUserId = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:337',message:'resolveUserId called',data:{currentUserId:userId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    console.log('[useShifts] resolveUserId called, current userId state:', userId)
+    
+    // If userId is already set, use it immediately to avoid timeout issues after page refresh
     if (userId) {
-      console.log('[useShifts] Using userId from state:', userId)
+      console.log('[useShifts] Using existing userId from state:', userId)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:344',message:'resolveUserId using existing userId',data:{userId:userId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return userId
     }
 
-    console.log('[useShifts] No userId in state, trying getUser()')
     const supabase = createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (user?.id) {
-      console.log('[useShifts] getUser() returned:', user.id)
-      setUserId(user.id)
-      return user.id
-    }
-    if (userError) {
-      console.log('[useShifts] getUser() failed:', userError.message)
+
+    // Only call getUser/getSession if userId is not already set
+    // This prevents timeout issues after page refresh when Supabase client is still initializing
+    try {
+      const getUserResponse = await runWithTimeout(
+        supabase.auth.getUser(),
+        'auth.getUser'
+      ) as AuthUserResponse
+      const { data: { user }, error: userError } = getUserResponse
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:355',message:'getUser result',data:{userId:user?.id,hasError:!!userError,errorMessage:userError?.message},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+
+      if (user?.id) {
+        console.log('[useShifts] getUser() returned:', user.id)
+        setUserId(user.id)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:362',message:'getUser success, returning userId',data:{userId:user.id},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return user.id
+      }
+
+      if (userError) {
+        console.log('[useShifts] getUser() failed:', userError.message)
+      }
+    } catch (getUserError) {
+      console.log('[useShifts] getUser() timed out or failed, falling back to getSession()')
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:372',message:'getUser exception, falling back',data:{error:String(getUserError)},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     }
 
     console.log('[useShifts] Falling back to getSession()')
-    const { data: { session } } = await supabase.auth.getSession()
-    const sessionUserId = session?.user?.id || null
-    console.log('[useShifts] getSession() returned:', sessionUserId)
-    if (sessionUserId) {
-      setUserId(sessionUserId)
+    try {
+      const getSessionResponse = await runWithTimeout(
+        supabase.auth.getSession(),
+        'auth.getSession'
+      ) as AuthSessionResponse
+      const { data: { session } } = getSessionResponse
+      const sessionUserId = session?.user?.id || null
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:382',message:'getSession result',data:{sessionUserId:sessionUserId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      console.log('[useShifts] getSession() returned:', sessionUserId)
+      if (sessionUserId) {
+        setUserId(sessionUserId)
+      }
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:390',message:'resolveUserId final result',data:{finalUserId:sessionUserId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      return sessionUserId
+    } catch (getSessionError) {
+      console.error('[useShifts] getSession() also failed:', getSessionError)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:395',message:'getSession exception',data:{error:String(getSessionError)},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      return null
     }
-    return sessionUserId
-  }
+  }, [userId])
 
   const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:359',message:'createShift START',data:{supabaseConfigured:supabaseConfigured,currentUserId:userId},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       console.log('[useShifts] createShift START')
       if (!supabaseConfigured) {
         console.error('[useShifts] Supabase not configured')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:363',message:'createShift blocked: supabase not configured',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         return null
       }
 
-      // First ensure we have a valid session
-      console.log('[useShifts] Checking session...')
-      const supabase = createClient()
-      
-      // Use getUser() to validate the session with the server
-      // getSession() only reads from cookie which may be stale
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError || !user?.id) {
-        console.error('[useShifts] No valid user:', userError)
-        // Fallback to getSession as last resort
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) {
-          setError('Session expired, please log in again')
-          return null
-        }
-        console.log('[useShifts] Fallback to session, userId:', session.user.id)
-      }
-      
-      const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
-      
+      const effectiveUserId = await resolveUserId()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:370',message:'createShift after resolveUserId',data:{effectiveUserId:effectiveUserId},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       if (!effectiveUserId) {
-        console.error('[useShifts] Could not get user ID')
-        setError('Not authenticated')
+        setError('Session expired, please log in again')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:373',message:'createShift blocked: no userId',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         return null
       }
-      
-      console.log('[useShifts] User validated, userId:', effectiveUserId)
 
       setError(null)
 
-      console.log('[useShifts] Inserting shift to database:', shift)
+      const supabase = createClient()
+      const insertPayload = { ...shift, user_id: effectiveUserId }
+      console.log('[useShifts] Inserting shift to database:', insertPayload)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:377',message:'createShift inserting to database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
-      const { data, error: createError } = await supabase
-        .from('shifts')
-        .insert({ ...shift, user_id: effectiveUserId })
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .single()
+      const createResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .insert(insertPayload)
+          .select('*')
+          .single(),
+        'create shift'
+      ) as CreateShiftResponse
+      const { data, error: createError } = createResponse
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:388',message:'createShift database response',data:{hasData:!!data,hasError:!!createError,errorMessage:createError?.message},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
       if (createError) {
         console.error('[useShifts] Error creating shift:', createError)
-        if (createError.message?.includes('timeout')) {
-          setError('Request timed out. Please check your connection and try again.')
-        } else {
-          setError(createError.message)
-        }
+        setError(formatSupabaseError(createError, 'Failed to create shift'))
         return null
       }
 
-      console.log('[useShifts] Shift created successfully:', data)
-
-      // Update local state directly instead of re-fetching all
-      // This avoids network delays and timeouts
-      if (data) {
-        const newShift = data as ShiftWithOrganization
-        const updatedShifts = [...shifts, newShift].sort((a, b) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        )
-        setShifts(updatedShifts)
-        setToLocalStorage('shiftflow_shifts', updatedShifts)
-        console.log('[useShifts] Local state updated with new shift')
-      }
+      await syncShiftsForUser(effectiveUserId)
 
       console.log('[useShifts] createShift END')
-      return data
-    } catch (error) {
-      console.error('[useShifts] EXCEPTION in createShift:', error)
+      return data as Shift
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in createShift:', mutationError)
       setError('Failed to create shift')
       return null
     }
@@ -354,73 +486,42 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         return false
       }
 
-      // First ensure we have a valid user
-      console.log('[useShifts] Checking user...')
-      const supabase = createClient()
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError || !user?.id) {
-        console.error('[useShifts] No valid user:', userError)
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) {
-          setError('Session expired, please log in again')
-          return false
-        }
-      }
-      
-      const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
-      
+      const effectiveUserId = await resolveUserId()
       if (!effectiveUserId) {
-        setError('Not authenticated')
+        setError('Session expired, please log in again')
         return false
       }
 
-      console.log('[useShifts] User validated, userId:', effectiveUserId)
       setError(null)
 
-      console.log('[useShifts] Updating shift in database')
-
-      // Include user_id in the query to help RLS policy and use index
-      const { data, error: updateError } = await supabase
-        .from('shifts')
-        .update(updates)
-        .eq('id', id)
-        .eq('user_id', effectiveUserId)
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .single()
+      const supabase = createClient()
+      const updateResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .update(updates, { count: 'exact' })
+          .eq('id', id)
+          .eq('user_id', effectiveUserId),
+        'update shift'
+      ) as MutationCountResponse
+      const { error: updateError, count } = updateResponse
 
       if (updateError) {
         console.error('[useShifts] Error updating shift:', updateError)
-        if (updateError.message?.includes('timeout')) {
-          setError('Request timed out. Please check your connection and try again.')
-        } else {
-          setError(updateError.message)
-        }
+        setError(formatSupabaseError(updateError, 'Failed to update shift'))
         return false
       }
 
-      console.log('[useShifts] Shift updated successfully:', data)
-
-      // Update local state directly instead of re-fetching all
-      if (data) {
-        const updatedShift = data as ShiftWithOrganization
-        const updatedShifts = shifts.map(s => 
-          s.id === id ? updatedShift : s
-        ).sort((a, b) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        )
-        setShifts(updatedShifts)
-        setToLocalStorage('shiftflow_shifts', updatedShifts)
-        console.log('[useShifts] Local state updated with edited shift')
+      if (!count) {
+        setError('Shift not found or permission denied')
+        return false
       }
+
+      await syncShiftsForUser(effectiveUserId)
 
       console.log('[useShifts] updateShift END')
       return true
-    } catch (error) {
-      console.error('[useShifts] EXCEPTION in updateShift:', error)
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in updateShift:', mutationError)
       setError('Failed to update shift')
       return false
     }
@@ -428,70 +529,69 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const deleteShift = async (id: string): Promise<boolean> => {
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:455',message:'deleteShift START',data:{shiftId:id,supabaseConfigured:supabaseConfigured,currentUserId:userId},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       console.log('[useShifts] deleteShift START, id:', id)
       if (!supabaseConfigured) {
         console.error('[useShifts] Supabase not configured')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:459',message:'deleteShift blocked: supabase not configured',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         return false
       }
 
-      // First ensure we have a valid user
-      console.log('[useShifts] Checking user...')
-      const supabase = createClient()
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      
-      if (userError || !user?.id) {
-        console.error('[useShifts] No valid user:', userError)
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) {
-          setError('Session expired, please log in again')
-          return false
-        }
-      }
-      
-      const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
-      
+      const effectiveUserId = await resolveUserId()
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:466',message:'deleteShift after resolveUserId',data:{effectiveUserId:effectiveUserId},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       if (!effectiveUserId) {
-        setError('Not authenticated')
+        setError('Session expired, please log in again')
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:469',message:'deleteShift blocked: no userId',data:{},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         return false
       }
 
-      console.log('[useShifts] User validated, userId:', effectiveUserId)
       setError(null)
 
+      const supabase = createClient()
       console.log('[useShifts] Deleting shift from database, shift id:', id)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:473',message:'deleteShift deleting from database',data:{hasSupabaseClient:!!supabase,userId:effectiveUserId,shiftId:id},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
-      // Include user_id in the query to help RLS policy and use index
-      const { error: deleteError, data: deletedData } = await supabase
-        .from('shifts')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', effectiveUserId)
-        .select('id')
-        .single()
+      const deleteResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .delete({ count: 'exact' })
+          .eq('id', id)
+          .eq('user_id', effectiveUserId),
+        'delete shift'
+      ) as MutationCountResponse
+      const { error: deleteError, count } = deleteResponse
+
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:485',message:'deleteShift database response',data:{count:count,hasError:!!deleteError,errorMessage:deleteError?.message},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
 
       if (deleteError) {
         console.error('[useShifts] Error deleting shift:', deleteError)
-        // Check if it's a timeout error
-        if (deleteError.message?.includes('timeout')) {
-          setError('Request timed out. Please check your connection and try again.')
-        } else {
-          setError(deleteError.message)
-        }
+        setError(formatSupabaseError(deleteError, 'Failed to delete shift'))
         return false
       }
 
-      console.log('[useShifts] Shift deleted successfully:', deletedData)
+      if (!count) {
+        setError('Shift not found or permission denied')
+        return false
+      }
 
-      // Update local state directly by removing the deleted shift
-      const updatedShifts = shifts.filter(s => s.id !== id)
-      setShifts(updatedShifts)
-      setToLocalStorage('shiftflow_shifts', updatedShifts)
-      console.log('[useShifts] Local state updated, removed shift:', id)
+      await syncShiftsForUser(effectiveUserId)
 
       console.log('[useShifts] deleteShift END')
       return true
-    } catch (error) {
-      console.error('[useShifts] EXCEPTION in deleteShift:', error)
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in deleteShift:', mutationError)
       setError('Failed to delete shift')
       return false
     }
