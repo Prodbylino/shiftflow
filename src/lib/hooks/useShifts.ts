@@ -387,18 +387,21 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const resolveUserId = useCallback(async () => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:387',message:'resolveUserId called',data:{currentUserId:userId},timestamp:Date.now(),runId:'run3',hypothesisId:'H'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:388',message:'resolveUserId called',data:{currentUserId:userId,userIdType:typeof userId,userIdTruthy:!!userId},timestamp:Date.now(),runId:'run4',hypothesisId:'J'})}).catch(()=>{});
     // #endregion
-    console.log('[useShifts] resolveUserId called, current userId state:', userId)
+    console.log('[useShifts] resolveUserId called, current userId state:', userId, 'type:', typeof userId, 'truthy:', !!userId)
     
     // CRITICAL FIX: If userId is already set, use it immediately - no API calls needed
+    // This is the fastest path and avoids all timeout issues
     if (userId) {
-      console.log('[useShifts] Using existing userId from state:', userId)
+      console.log('[useShifts] Using existing userId from state (NO API CALL):', userId)
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:394',message:'resolveUserId using existing userId',data:{userId:userId},timestamp:Date.now(),runId:'run3',hypothesisId:'H'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:396',message:'resolveUserId returning existing userId (NO API CALL)',data:{userId:userId},timestamp:Date.now(),runId:'run4',hypothesisId:'J'})}).catch(()=>{});
       // #endregion
       return userId
     }
+    
+    console.warn('[useShifts] WARNING: userId is null/undefined, will attempt getSession() - this should be rare after page load')
 
     const supabase = createClient()
 
