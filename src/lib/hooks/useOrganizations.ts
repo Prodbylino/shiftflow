@@ -23,7 +23,7 @@ const getFromLocalStorage = (key: string) => {
   }
 }
 
-const setToLocalStorage = (key: string, value: any) => {
+const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(key, JSON.stringify(value))
