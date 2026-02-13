@@ -336,7 +336,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const resolveUserId = useCallback(async () => {
     // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:337',message:'resolveUserId called',data:{currentUserId:userId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:337',message:'resolveUserId called',data:{currentUserId:userId},timestamp:Date.now(),runId:'run2',hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     console.log('[useShifts] resolveUserId called, current userId state:', userId)
     
@@ -344,31 +344,61 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     if (userId) {
       console.log('[useShifts] Using existing userId from state:', userId)
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:344',message:'resolveUserId using existing userId',data:{userId:userId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:344',message:'resolveUserId using existing userId',data:{userId:userId},timestamp:Date.now(),runId:'run2',hypothesisId:'B'})}).catch(()=>{});
       // #endregion
       return userId
     }
 
     const supabase = createClient()
 
-    // Only call getUser/getSession if userId is not already set
-    // This prevents timeout issues after page refresh when Supabase client is still initializing
+    // CRITICAL FIX: Use getSession() first (faster, reads from cookies) instead of getUser() (slower, validates token)
+    // getSession() is much faster after page refresh and doesn't timeout
+    console.log('[useShifts] userId not set, trying getSession() first (faster than getUser)')
+    try {
+      const getSessionResponse = await runWithTimeout(
+        supabase.auth.getSession(),
+        'auth.getSession',
+        5000 // Shorter timeout for getSession (5s instead of 15s)
+      ) as AuthSessionResponse
+      const { data: { session } } = getSessionResponse
+      const sessionUserId = session?.user?.id || null
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:356',message:'getSession result (first attempt)',data:{sessionUserId:sessionUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      console.log('[useShifts] getSession() returned:', sessionUserId)
+      if (sessionUserId) {
+        setUserId(sessionUserId)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:361',message:'getSession success, returning userId',data:{userId:sessionUserId},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return sessionUserId
+      }
+    } catch (getSessionError) {
+      console.log('[useShifts] getSession() failed, trying getUser() as fallback:', getSessionError)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:367',message:'getSession exception, falling back to getUser',data:{error:String(getSessionError)},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+    }
+
+    // Only try getUser() if getSession() failed (getUser is slower and may timeout)
+    console.log('[useShifts] Falling back to getUser()')
     try {
       const getUserResponse = await runWithTimeout(
         supabase.auth.getUser(),
-        'auth.getUser'
+        'auth.getUser',
+        5000 // Shorter timeout (5s instead of 15s) to fail fast
       ) as AuthUserResponse
       const { data: { user }, error: userError } = getUserResponse
 
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:355',message:'getUser result',data:{userId:user?.id,hasError:!!userError,errorMessage:userError?.message},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:378',message:'getUser result (fallback)',data:{userId:user?.id,hasError:!!userError,errorMessage:userError?.message},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
 
       if (user?.id) {
         console.log('[useShifts] getUser() returned:', user.id)
         setUserId(user.id)
         // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:362',message:'getUser success, returning userId',data:{userId:user.id},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:384',message:'getUser success, returning userId',data:{userId:user.id},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         return user.id
       }
@@ -377,39 +407,16 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         console.log('[useShifts] getUser() failed:', userError.message)
       }
     } catch (getUserError) {
-      console.log('[useShifts] getUser() timed out or failed, falling back to getSession()')
+      console.error('[useShifts] getUser() also failed:', getUserError)
       // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:372',message:'getUser exception, falling back',data:{error:String(getUserError)},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:393',message:'getUser exception',data:{error:String(getUserError)},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
     }
 
-    console.log('[useShifts] Falling back to getSession()')
-    try {
-      const getSessionResponse = await runWithTimeout(
-        supabase.auth.getSession(),
-        'auth.getSession'
-      ) as AuthSessionResponse
-      const { data: { session } } = getSessionResponse
-      const sessionUserId = session?.user?.id || null
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:382',message:'getSession result',data:{sessionUserId:sessionUserId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      console.log('[useShifts] getSession() returned:', sessionUserId)
-      if (sessionUserId) {
-        setUserId(sessionUserId)
-      }
-
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:390',message:'resolveUserId final result',data:{finalUserId:sessionUserId},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      return sessionUserId
-    } catch (getSessionError) {
-      console.error('[useShifts] getSession() also failed:', getSessionError)
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:395',message:'getSession exception',data:{error:String(getSessionError)},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      return null
-    }
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/135ddc28-30a6-4314-830c-525fbad3d053',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useShifts.ts:397',message:'resolveUserId final result - no userId found',data:{finalUserId:null},timestamp:Date.now(),runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    return null
   }, [userId])
 
   const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
