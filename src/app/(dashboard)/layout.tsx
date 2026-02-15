@@ -6,6 +6,7 @@ import { Sidebar, MobileHeader } from '@/components/layout/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { useAuth } from '@/lib/hooks'
+import { DashboardAuthProvider } from '@/lib/dashboard-auth-context'
 
 export default function DashboardLayout({
   children,
@@ -31,18 +32,20 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar
-        mobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
-      <div className="flex-1 flex flex-col overflow-auto">
-        <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
-        <main className="flex-1">
-          {children}
-        </main>
+    <DashboardAuthProvider value={{ user, profile, signOut }}>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+        />
+        <div className="flex-1 flex flex-col overflow-auto">
+          <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
+          <main className="flex-1">
+            {children}
+          </main>
+        </div>
+        <Toaster />
       </div>
-      <Toaster />
-    </div>
+    </DashboardAuthProvider>
   )
 }

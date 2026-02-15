@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/lib/hooks'
+import { useDashboardAuth } from '@/lib/dashboard-auth-context'
 
 const navItems = [
   {
@@ -54,7 +53,7 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
-  const { user, profile, signOut, loading } = useAuth()
+  const { user, profile, signOut } = useDashboardAuth()
 
   const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User'
   const initials = displayName
@@ -110,14 +109,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-4 px-4 py-3 mb-2">
           <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-lg font-bold text-white">
-            {loading ? '...' : initials}
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-lg font-semibold text-gray-900 truncate">
-              {loading ? 'Loading...' : displayName}
+              {displayName}
             </p>
             <p className="text-base text-gray-500 truncate">
-              {loading ? '' : (profile?.email || user?.email || '')}
+              {profile?.email || user?.email || ''}
             </p>
           </div>
         </div>

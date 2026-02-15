@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { LanguageSwitch } from '@/lib/i18n'
 import { MonthCalendar } from '@/components/calendar/MonthCalendar'
 import { UserMenu } from '@/components/calendar/UserMenu'
-import { useAuth, useOrganizations, useShifts } from '@/lib/hooks'
+import { useOrganizations, useShifts } from '@/lib/hooks'
 import { LoadingSpinner } from '@/components/ui/loading'
+import { useDashboardAuth } from '@/lib/dashboard-auth-context'
 
 // Type for the calendar component
 interface CalendarShift {
@@ -34,14 +35,14 @@ const formatDateString = (date: Date): string => {
 }
 
 export default function DashboardPage() {
-  const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
+  const { user: authUser, profile, signOut } = useDashboardAuth()
   const { organizations, loading: orgsLoading } = useOrganizations({
     userId: authUser?.id ?? null,
-    authLoading,
+    authLoading: false,
   })
   const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError } = useShifts({
     userId: authUser?.id ?? null,
-    authLoading,
+    authLoading: false,
   })
 
   // Transform DB organizations to calendar component format
@@ -117,7 +118,7 @@ export default function DashboardPage() {
   }
 
   // Show loading while fetching initial data
-  if (authLoading || orgsLoading || shiftsLoading) {
+  if (orgsLoading || shiftsLoading) {
     return <LoadingSpinner />
   }
 
