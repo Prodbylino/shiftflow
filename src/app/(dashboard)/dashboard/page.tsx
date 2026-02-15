@@ -36,7 +36,7 @@ const formatDateString = (date: Date): string => {
 
 export default function DashboardPage() {
   const { user: authUser, profile, signOut } = useDashboardAuth()
-  const { organizations, loading: orgsLoading } = useOrganizations({
+  const { organizations, loading: orgsLoading, error: orgsError } = useOrganizations({
     userId: authUser?.id ?? null,
     authLoading: false,
   })
@@ -118,7 +118,11 @@ export default function DashboardPage() {
   }
 
   // Show loading while fetching initial data
-  if (orgsLoading || shiftsLoading) {
+  const showBlockingLoading =
+    (orgsLoading && organizations.length === 0) ||
+    (shiftsLoading && shifts.length === 0)
+
+  if (showBlockingLoading) {
     return <LoadingSpinner />
   }
 
@@ -154,9 +158,9 @@ export default function DashboardPage() {
       </header>
 
       {/* Error Display */}
-      {shiftsError && (
+      {(orgsError || shiftsError) && (
         <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
-          <p className="font-medium">Error: {shiftsError}</p>
+          <p className="font-medium">Error: {orgsError || shiftsError}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="mt-2 text-sm underline hover:no-underline"

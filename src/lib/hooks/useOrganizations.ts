@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
+const FETCH_TIMEOUT_MS = 15000
+
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -29,6 +31,24 @@ const setToLocalStorage = (key: string, value: unknown) => {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Ignore localStorage errors
+  }
+}
+
+const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${FETCH_TIMEOUT_MS}ms`))
+    }, FETCH_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([Promise.resolve(promise), timeoutPromise])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 
@@ -61,22 +81,38 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
   const fetchOrgsForUser = useCallback(async (uid: string) => {
     const supabase = createClient()
-    const { data, error: fetchError } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false })
+    console.log('[useOrganizations] Fetching organizations for user:', uid)
 
-    if (fetchError) {
-      setError(fetchError.message)
-      setOrganizations([])
-      setToLocalStorage('shiftflow_orgs', [])
-      return
+    try {
+      const { data, error: fetchError } = await withTimeout<{
+        data: Organization[] | null
+        error: { message: string } | null
+      }>(
+        supabase
+          .from('organizations')
+          .select('*')
+          .eq('user_id', uid)
+          .order('created_at', { ascending: false }),
+        'fetch organizations'
+      )
+
+      if (fetchError) {
+        setError(fetchError.message)
+        console.error('[useOrganizations] Error fetching organizations:', fetchError)
+        return
+      }
+
+      setError(null)
+      setOrganizations(data || [])
+      setToLocalStorage('shiftflow_orgs', data || [])
+      console.log('[useOrganizations] Fetched organizations from DB:', (data || []).length, 'orgs')
+    } catch (fetchException) {
+      const message = fetchException instanceof Error
+        ? fetchException.message
+        : 'Failed to fetch organizations'
+      setError(message)
+      console.error('[useOrganizations] Exception while fetching organizations:', fetchException)
     }
-
-    setError(null)
-    setOrganizations(data || [])
-    setToLocalStorage('shiftflow_orgs', data || [])
   }, [])
 
   useEffect(() => {
@@ -104,14 +140,21 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
       }
 
       let isMounted = true
+      const fallbackTimer = window.setTimeout(() => {
+        if (!isMounted) return
+        setLoading(false)
+        setError((prev) => prev ?? 'Loading organizations is taking longer than expected.')
+      }, FETCH_TIMEOUT_MS + 1000)
       setLoading(true)
       fetchOrgsForUser(externalUserId)
         .finally(() => {
+          window.clearTimeout(fallbackTimer)
           if (isMounted) setLoading(false)
         })
 
       return () => {
         isMounted = false
+        window.clearTimeout(fallbackTimer)
       }
     }
 

@@ -6,6 +6,7 @@ import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 const SHIFTS_STORAGE_KEY = 'shiftflow_shifts'
+const FETCH_TIMEOUT_MS = 15000
 
 const isSupabaseConfigured = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -29,6 +30,24 @@ const setToLocalStorage = (key: string, value: unknown) => {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
     // Ignore localStorage errors
+  }
+}
+
+const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${FETCH_TIMEOUT_MS}ms`))
+    }, FETCH_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([Promise.resolve(promise), timeoutPromise])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 
@@ -75,36 +94,51 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
   const fetchShiftsForUser = useCallback(async (uid: string): Promise<boolean> => {
     const supabase = createClient()
+    console.log('[useShifts] Fetching shifts for user:', uid)
 
-    let query = supabase
-      .from('shifts')
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .eq('user_id', uid)
-      .order('date', { ascending: true })
+    try {
+      let query = supabase
+        .from('shifts')
+        .select(`
+          *,
+          organization:organizations(*)
+        `)
+        .eq('user_id', uid)
+        .order('date', { ascending: true })
 
-    if (startDateStr) {
-      query = query.gte('date', startDateStr)
-    }
-    if (endDateStr) {
-      query = query.lte('date', endDateStr)
-    }
-    if (organizationId) {
-      query = query.eq('organization_id', organizationId)
-    }
+      if (startDateStr) {
+        query = query.gte('date', startDateStr)
+      }
+      if (endDateStr) {
+        query = query.lte('date', endDateStr)
+      }
+      if (organizationId) {
+        query = query.eq('organization_id', organizationId)
+      }
 
-    const { data, error: fetchError } = await query
+      const { data, error: fetchError } = await withTimeout<{
+        data: ShiftWithOrganization[] | null
+        error: { message: string } | null
+      }>(query, 'fetch shifts')
 
-    if (fetchError) {
-      setError(fetchError.message)
+      if (fetchError) {
+        setError(fetchError.message)
+        console.error('[useShifts] Error fetching shifts:', fetchError)
+        return false
+      }
+
+      setError(null)
+      applyShifts((data || []) as ShiftWithOrganization[])
+      console.log('[useShifts] Fetched shifts from DB:', (data || []).length, 'shifts')
+      return true
+    } catch (fetchException) {
+      const message = fetchException instanceof Error
+        ? fetchException.message
+        : 'Failed to fetch shifts'
+      setError(message)
+      console.error('[useShifts] Exception while fetching shifts:', fetchException)
       return false
     }
-
-    setError(null)
-    applyShifts((data || []) as ShiftWithOrganization[])
-    return true
   }, [applyShifts, endDateStr, organizationId, startDateStr])
 
   const requireUserId = useCallback(async (): Promise<string | null> => {
@@ -144,16 +178,28 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       }
 
       let isMounted = true
-      const timer = window.setTimeout(() => {
+      const startLoadingTimer = window.setTimeout(() => {
+        if (isMounted) setLoading(true)
+      }, 0)
+      const fallbackTimer = window.setTimeout(() => {
+        if (!isMounted) return
+        setLoading(false)
+        setError((prev) => prev ?? 'Loading shifts is taking longer than expected.')
+      }, FETCH_TIMEOUT_MS + 1000)
+      const fetchTimer = window.setTimeout(() => {
         void fetchShiftsForUser(externalUserId)
           .finally(() => {
+            window.clearTimeout(startLoadingTimer)
+            window.clearTimeout(fallbackTimer)
             if (isMounted) setLoading(false)
           })
       }, 0)
 
       return () => {
         isMounted = false
-        window.clearTimeout(timer)
+        window.clearTimeout(startLoadingTimer)
+        window.clearTimeout(fallbackTimer)
+        window.clearTimeout(fetchTimer)
       }
     }
 
