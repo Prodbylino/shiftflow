@@ -181,21 +181,13 @@ export function useOrganizations(): UseOrganizationsReturn {
 
     const supabase = createClient()
 
-    // Use getUser() to validate session with server
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError || !user?.id) {
-      console.error('[useOrganizations] No valid user:', userError)
-      // Fallback to getSession
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        setError('Not authenticated')
-        return null
-      }
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      setError(sessionError.message)
+      return null
     }
-    
-    const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
-    
+
+    const effectiveUserId = session?.user?.id
     if (!effectiveUserId) {
       setError('Not authenticated')
       return null

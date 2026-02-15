@@ -5,11 +5,27 @@ import { createClient } from '@/lib/supabase/client'
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { Profile } from '@/types/database'
 
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000
+const LAST_ACTIVITY_KEY = 'shiftflow_last_activity_at'
+
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
+}
+
+const getLastActivity = (): number | null => {
+  if (typeof window === 'undefined') return null
+  const raw = window.localStorage.getItem(LAST_ACTIVITY_KEY)
+  if (!raw) return null
+  const ts = Number(raw)
+  return Number.isFinite(ts) ? ts : null
+}
+
+const setLastActivity = (timestamp: number = Date.now()) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(LAST_ACTIVITY_KEY, String(timestamp))
 }
 
 const setToLocalStorage = (key: string, value: unknown) => {
@@ -79,6 +95,18 @@ export function useAuth(): UseAuthReturn {
 
       try {
         if (session?.user) {
+          const lastActivity = getLastActivity()
+          if (lastActivity && Date.now() - lastActivity > INACTIVITY_LIMIT_MS) {
+            await supabase.auth.signOut()
+            setUser(null)
+            setProfile(null)
+            setToLocalStorage('shiftflow_user', null)
+            setToLocalStorage('shiftflow_profile', null)
+            window.location.href = '/login?reason=timeout'
+            return
+          }
+
+          setLastActivity()
           setUser(session.user)
           setToLocalStorage('shiftflow_user', session.user)
           // Load profile and wait for it to complete
@@ -134,10 +162,82 @@ export function useAuth(): UseAuthReturn {
     }
   }, [supabaseConfigured, fetchProfile])
 
+  useEffect(() => {
+    if (!supabaseConfigured || !user) return
+
+    let isMounted = true
+    const supabase = createClient()
+    let lastWrite = 0
+
+    const markActivity = () => {
+      const now = Date.now()
+      if (now - lastWrite < 5000) return
+      lastWrite = now
+      setLastActivity(now)
+    }
+
+    const checkInactivity = async () => {
+      if (!isMounted) return
+      const lastActivity = getLastActivity()
+      if (!lastActivity) {
+        setLastActivity()
+        return
+      }
+
+      if (Date.now() - lastActivity <= INACTIVITY_LIMIT_MS) return
+
+      await supabase.auth.signOut()
+      if (!isMounted) return
+      setUser(null)
+      setProfile(null)
+      setToLocalStorage('shiftflow_user', null)
+      setToLocalStorage('shiftflow_profile', null)
+      window.location.href = '/login?reason=timeout'
+    }
+
+    markActivity()
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'mousedown',
+      'keydown',
+      'touchstart',
+      'scroll',
+      'mousemove',
+    ]
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, markActivity, { passive: true })
+    })
+
+    const visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        void checkInactivity()
+        markActivity()
+      }
+    }
+
+    document.addEventListener('visibilitychange', visibilityHandler)
+    const interval = window.setInterval(() => {
+      void checkInactivity()
+    }, 30000)
+
+    return () => {
+      isMounted = false
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, markActivity)
+      })
+      document.removeEventListener('visibilitychange', visibilityHandler)
+      window.clearInterval(interval)
+    }
+  }, [supabaseConfigured, user])
+
   const signOut = async () => {
     if (supabaseConfigured) {
       const supabase = createClient()
       await supabase.auth.signOut()
+    }
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(LAST_ACTIVITY_KEY)
     }
     window.location.href = '/login'
   }
