@@ -42,18 +42,77 @@ interface UseOrganizationsReturn {
   refetch: () => Promise<void>
 }
 
-export function useOrganizations(): UseOrganizationsReturn {
+interface UseOrganizationsOptions {
+  userId?: string | null
+  authLoading?: boolean
+}
+
+export function useOrganizations(options?: UseOrganizationsOptions): UseOrganizationsReturn {
+  const externalUserId = options?.userId
+  const externalAuthLoading = options?.authLoading ?? false
+  const usingExternalAuth = typeof externalUserId !== 'undefined'
+
   const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('shiftflow_orgs') || [])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(usingExternalAuth ? externalAuthLoading : true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(externalUserId ?? null)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
+
+  const fetchOrgsForUser = useCallback(async (uid: string) => {
+    const supabase = createClient()
+    const { data, error: fetchError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+
+    if (fetchError) {
+      setError(fetchError.message)
+      setOrganizations([])
+      setToLocalStorage('shiftflow_orgs', [])
+      return
+    }
+
+    setError(null)
+    setOrganizations(data || [])
+    setToLocalStorage('shiftflow_orgs', data || [])
+  }, [])
+
+  useEffect(() => {
+    if (!usingExternalAuth) return
+    setUserId(externalUserId ?? null)
+  }, [externalUserId, usingExternalAuth])
 
   useEffect(() => {
     if (!supabaseConfigured) {
       setLoading(false)
       return
+    }
+
+    if (usingExternalAuth) {
+      if (externalAuthLoading) {
+        setLoading(true)
+        return
+      }
+
+      if (!externalUserId) {
+        setOrganizations([])
+        setToLocalStorage('shiftflow_orgs', [])
+        setLoading(false)
+        return
+      }
+
+      let isMounted = true
+      setLoading(true)
+      fetchOrgsForUser(externalUserId)
+        .finally(() => {
+          if (isMounted) setLoading(false)
+        })
+
+      return () => {
+        isMounted = false
+      }
     }
 
     const supabase = createClient()
@@ -65,42 +124,13 @@ export function useOrganizations(): UseOrganizationsReturn {
       }
     }
 
-    const fetchOrgs = async (uid: string) => {
-      console.log('[useOrganizations] Fetching organizations for user:', uid)
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('user_id', uid)
-          .order('created_at', { ascending: false })
-
-        if (!isMounted) return
-
-        if (fetchError) {
-          console.error('[useOrganizations] Error fetching organizations:', fetchError)
-          setError(fetchError.message)
-          setOrganizations([])
-          setToLocalStorage('shiftflow_orgs', [])
-        } else {
-          console.log('[useOrganizations] Fetched organizations from DB:', data?.length || 0, 'orgs')
-          setOrganizations(data || [])
-          setToLocalStorage('shiftflow_orgs', data || [])
-        }
-      } catch (err) {
-        if (!isMounted) return
-        setError('Failed to load organizations')
-        setOrganizations([])
-        setToLocalStorage('shiftflow_orgs', [])
-      }
-    }
-
     const handleSession = async (session: Session | null) => {
       if (!isMounted) return
 
       try {
         if (session?.user) {
           setUserId(session.user.id)
-          await fetchOrgs(session.user.id)
+          await fetchOrgsForUser(session.user.id)
         } else {
           setUserId(null)
           setOrganizations([])
@@ -149,7 +179,7 @@ export function useOrganizations(): UseOrganizationsReturn {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [supabaseConfigured])
+  }, [supabaseConfigured, usingExternalAuth, externalAuthLoading, externalUserId, fetchOrgsForUser])
 
   const fetchOrganizations = useCallback(async () => {
     if (!userId || !supabaseConfigured) {
@@ -158,22 +188,11 @@ export function useOrganizations(): UseOrganizationsReturn {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const { data, error: fetchError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (fetchError) {
-        setError(fetchError.message)
-      } else {
-        setOrganizations(data || [])
-      }
+      await fetchOrgsForUser(userId)
     } catch (err) {
       setError('Failed to fetch organizations')
     }
-  }, [userId, supabaseConfigured])
+  }, [userId, supabaseConfigured, fetchOrgsForUser])
 
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
     if (!supabaseConfigured) return null

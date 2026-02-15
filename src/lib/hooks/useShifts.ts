@@ -36,6 +36,8 @@ interface UseShiftsOptions {
   startDate?: Date
   endDate?: Date
   organizationId?: string
+  userId?: string | null
+  authLoading?: boolean
 }
 
 interface UseShiftsReturn {
@@ -50,13 +52,16 @@ interface UseShiftsReturn {
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
+  const externalUserId = options?.userId
+  const externalAuthLoading = options?.authLoading ?? false
+  const usingExternalAuth = typeof externalUserId !== 'undefined'
 
   const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() =>
     getFromLocalStorage<ShiftWithOrganization[]>(SHIFTS_STORAGE_KEY, [])
   )
-  const [loading, setLoading] = useState(supabaseConfigured)
+  const [loading, setLoading] = useState(usingExternalAuth ? externalAuthLoading : supabaseConfigured)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(externalUserId ?? null)
 
   const startDateStr = options?.startDate?.toISOString().split('T')[0]
   const endDateStr = options?.endDate?.toISOString().split('T')[0]
@@ -103,6 +108,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
   }, [applyShifts, endDateStr, organizationId, startDateStr])
 
   const requireUserId = useCallback(async (): Promise<string | null> => {
+    if (externalUserId) return externalUserId
     if (userId) return userId
     if (!supabaseConfigured) return null
 
@@ -123,11 +129,32 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     }
 
     return sessionUserId
-  }, [supabaseConfigured, userId])
+  }, [supabaseConfigured, userId, externalUserId])
 
   useEffect(() => {
     if (!supabaseConfigured) {
       return
+    }
+
+    if (usingExternalAuth) {
+      if (externalAuthLoading) return
+
+      if (!externalUserId) {
+        return
+      }
+
+      let isMounted = true
+      const timer = window.setTimeout(() => {
+        void fetchShiftsForUser(externalUserId)
+          .finally(() => {
+            if (isMounted) setLoading(false)
+          })
+      }, 0)
+
+      return () => {
+        isMounted = false
+        window.clearTimeout(timer)
+      }
     }
 
     const supabase = createClient()
@@ -193,7 +220,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [applyShifts, fetchShiftsForUser, supabaseConfigured])
+  }, [applyShifts, fetchShiftsForUser, supabaseConfigured, usingExternalAuth, externalAuthLoading, externalUserId])
 
   const refetch = useCallback(async () => {
     const uid = await requireUserId()

@@ -24,9 +24,15 @@ interface OrgSummary {
 
 export default function AnalyticsPage() {
   const { t } = useI18n()
-  const { loading: authLoading } = useAuth()
-  const { organizations, loading: orgsLoading } = useOrganizations()
-  const { shifts, loading: shiftsLoading } = useShifts()
+  const { user: authUser, loading: authLoading } = useAuth()
+  const { organizations, loading: orgsLoading } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading,
+  })
+  const { shifts, loading: shiftsLoading } = useShifts({
+    userId: authUser?.id ?? null,
+    authLoading,
+  })
   const { getMonthlySummary, getFinancialYearSummary, loading: analyticsLoading } = useAnalytics()
 
   const [period, setPeriod] = useState('month')

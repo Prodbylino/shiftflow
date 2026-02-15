@@ -35,8 +35,14 @@ const formatDateString = (date: Date): string => {
 
 export default function DashboardPage() {
   const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
-  const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
-  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError, refetch: refetchShifts } = useShifts()
+  const { organizations, loading: orgsLoading } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading,
+  })
+  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError } = useShifts({
+    userId: authUser?.id ?? null,
+    authLoading,
+  })
 
   // Transform DB organizations to calendar component format
   const calendarOrganizations: CalendarOrganization[] = useMemo(() => {

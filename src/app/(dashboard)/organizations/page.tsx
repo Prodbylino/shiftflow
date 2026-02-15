@@ -22,7 +22,7 @@ const colorOptions = [
 
 export default function OrganizationsPage() {
   const { t } = useI18n()
-  const { profile, signOut, loading: authLoading } = useAuth()
+  const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
   const {
     organizations,
     loading: orgsLoading,
@@ -30,7 +30,10 @@ export default function OrganizationsPage() {
     createOrganization,
     updateOrganization,
     deleteOrganization,
-  } = useOrganizations()
+  } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading,
+  })
 
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgRate, setNewOrgRate] = useState('')
