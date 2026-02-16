@@ -7,7 +7,7 @@ import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 const SHIFTS_STORAGE_KEY = 'shiftflow_shifts'
-const EXTERNAL_AUTH_LOADING_HINT_MS = 16000
+const EXTERNAL_AUTH_LOADING_HINT_MS = 25000
 type SupabaseErrorLike = {
   message?: string
   code?: string
@@ -169,7 +169,12 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       if (fetchError) {
         const message = formatSupabaseError(fetchError, 'Failed to load shifts')
         console.error('[useShifts] Error fetching shifts:', fetchError)
-        setError(message)
+        if (!cachedShiftsRef.current) {
+          setError(message)
+        } else {
+          setError(null)
+          console.warn('[useShifts] Fetch failed, keeping cached shifts:', fetchError)
+        }
         return false
       }
 
@@ -178,7 +183,13 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       return true
     } catch (err) {
       console.error('[useShifts] Exception while fetching shifts:', err)
-      setError('Failed to load shifts')
+      if (!cachedShiftsRef.current) {
+        const isAbort = err instanceof DOMException && err.name === 'AbortError'
+        setError(isAbort ? 'Shifts request timed out. Please try again.' : 'Failed to load shifts')
+      } else {
+        setError(null)
+        console.warn('[useShifts] Request failed, keeping cached shifts:', err)
+      }
       return false
     }
   }, [buildShiftsQuery, applyFetchedShifts])

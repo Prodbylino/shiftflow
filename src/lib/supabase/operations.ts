@@ -1,6 +1,6 @@
 import { createClient, resetClient } from '@/lib/supabase/client'
 
-const DEFAULT_TIMEOUT_MS = 30000
+const DEFAULT_TIMEOUT_MS = 8000
 const DEFAULT_RETRIES = 1
 
 const isRetryableError = (error: unknown): boolean => {

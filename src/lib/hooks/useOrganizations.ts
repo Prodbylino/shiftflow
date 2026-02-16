@@ -6,7 +6,7 @@ import { runSupabaseQueryWithRetry } from '@/lib/supabase/operations'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-const EXTERNAL_AUTH_LOADING_HINT_MS = 16000
+const EXTERNAL_AUTH_LOADING_HINT_MS = 25000
 type SupabaseErrorLike = { message?: string } | null
 
 // Check if Supabase is configured
@@ -89,7 +89,12 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
       )
 
       if (fetchError) {
-        setError(fetchError.message ?? 'Failed to fetch organizations')
+        if (!cachedOrganizationsRef.current) {
+          setError(fetchError.message ?? 'Failed to fetch organizations')
+        } else {
+          setError(null)
+          console.warn('[useOrganizations] Fetch failed, keeping cached organizations:', fetchError)
+        }
         console.error('[useOrganizations] Error fetching organizations:', fetchError)
         return
       }
@@ -99,8 +104,15 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
       setToLocalStorage('shiftflow_orgs', data || [])
       console.log('[useOrganizations] Fetched organizations from DB:', (data || []).length, 'orgs')
     } catch (fetchException) {
+      if (cachedOrganizationsRef.current) {
+        setError(null)
+        console.warn('[useOrganizations] Request failed, keeping cached organizations:', fetchException)
+        return
+      }
+
+      const isAbort = fetchException instanceof DOMException && fetchException.name === 'AbortError'
       const message = fetchException instanceof Error
-        ? fetchException.message
+        ? (isAbort ? 'Organizations request timed out. Please try again.' : fetchException.message)
         : 'Failed to fetch organizations'
       setError(message)
       console.error('[useOrganizations] Exception while fetching organizations:', fetchException)
