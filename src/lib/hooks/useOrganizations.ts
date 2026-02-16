@@ -46,7 +46,10 @@ export function useOrganizations(): UseOrganizationsReturn {
   const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('shiftflow_orgs') || [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(() => {
+    const storedUser = getFromLocalStorage('shiftflow_user')
+    return storedUser?.id || null
+  })
   const sessionHandledRef = useRef(false)
   const loadingCompletedRef = useRef(false)
 
@@ -188,27 +191,30 @@ export function useOrganizations(): UseOrganizationsReturn {
     }
   }, [userId, supabaseConfigured])
 
+
+  const resolveUserId = useCallback(async () => {
+    if (userId) return userId
+
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const sessionUserId = session?.user?.id || null
+      if (sessionUserId) {
+        setUserId(sessionUserId)
+      }
+      return sessionUserId
+    } catch {
+      return null
+    }
+  }, [userId])
+
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
     if (!supabaseConfigured) return null
     setError(null)
 
     const supabase = createClient()
+    const effectiveUserId = await resolveUserId()
 
-    // Use getUser() to validate session with server
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError || !user?.id) {
-      console.error('[useOrganizations] No valid user:', userError)
-      // Fallback to getSession
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        setError('Not authenticated')
-        return null
-      }
-    }
-    
-    const effectiveUserId = user?.id || (await supabase.auth.getSession()).data.session?.user?.id
-    
     if (!effectiveUserId) {
       setError('Not authenticated')
       return null
