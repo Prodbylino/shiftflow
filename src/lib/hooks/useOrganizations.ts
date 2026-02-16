@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { runSupabaseQueryWithRetry } from '@/lib/supabase/operations'
 import { Organization, OrganizationInsert, OrganizationUpdate } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-const FETCH_TIMEOUT_MS = 15000
+const EXTERNAL_AUTH_LOADING_HINT_MS = 16000
+type SupabaseErrorLike = { message?: string } | null
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -34,24 +36,6 @@ const setToLocalStorage = (key: string, value: unknown) => {
   }
 }
 
-const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${FETCH_TIMEOUT_MS}ms`))
-    }, FETCH_TIMEOUT_MS)
-  })
-
-  try {
-    return await Promise.race([Promise.resolve(promise), timeoutPromise])
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-  }
-}
-
 interface UseOrganizationsReturn {
   organizations: Organization[]
   loading: boolean
@@ -76,28 +60,36 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
   const [loading, setLoading] = useState(usingExternalAuth ? externalAuthLoading : true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(externalUserId ?? null)
+  const cachedOrganizationsRef = useRef(organizations.length > 0)
 
   const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
 
+  useEffect(() => {
+    if (organizations.length > 0) {
+      cachedOrganizationsRef.current = true
+    }
+  }, [organizations.length])
+
   const fetchOrgsForUser = useCallback(async (uid: string) => {
-    const supabase = createClient()
     console.log('[useOrganizations] Fetching organizations for user:', uid)
 
     try {
-      const { data, error: fetchError } = await withTimeout<{
+      const { data, error: fetchError } = await runSupabaseQueryWithRetry<{
         data: Organization[] | null
-        error: { message: string } | null
+        error: SupabaseErrorLike
       }>(
-        supabase
-          .from('organizations')
-          .select('*')
-          .eq('user_id', uid)
-          .order('created_at', { ascending: false }),
-        'fetch organizations'
+        'fetch organizations',
+        (supabase, signal) =>
+          supabase
+            .from('organizations')
+            .select('*')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: false })
+            .abortSignal(signal)
       )
 
       if (fetchError) {
-        setError(fetchError.message)
+        setError(fetchError.message ?? 'Failed to fetch organizations')
         console.error('[useOrganizations] Error fetching organizations:', fetchError)
         return
       }
@@ -143,8 +135,12 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
       const fallbackTimer = window.setTimeout(() => {
         if (!isMounted) return
         setLoading(false)
-        setError((prev) => prev ?? 'Loading organizations is taking longer than expected.')
-      }, FETCH_TIMEOUT_MS + 1000)
+        if (!cachedOrganizationsRef.current) {
+          setError((prev) => prev ?? 'Loading organizations is taking longer than expected.')
+        } else {
+          console.warn('[useOrganizations] Remote organizations request is slow, using cached data')
+        }
+      }, EXTERNAL_AUTH_LOADING_HINT_MS)
       setLoading(true)
       fetchOrgsForUser(externalUserId)
         .finally(() => {
@@ -232,7 +228,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
     try {
       await fetchOrgsForUser(userId)
-    } catch (err) {
+    } catch {
       setError('Failed to fetch organizations')
     }
   }, [userId, supabaseConfigured, fetchOrgsForUser])
@@ -241,37 +237,52 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
     if (!supabaseConfigured) return null
     setError(null)
 
-    const supabase = createClient()
-
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) {
-      setError(sessionError.message)
-      return null
+    let effectiveUserId = externalUserId ?? userId
+    if (!effectiveUserId) {
+      const supabase = createClient()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        setError(sessionError.message)
+        return null
+      }
+      effectiveUserId = session?.user?.id ?? null
     }
 
-    const effectiveUserId = session?.user?.id
     if (!effectiveUserId) {
       setError('Not authenticated')
       return null
     }
 
-    const { data, error: createError } = await supabase
-      .from('organizations')
-      .insert({ ...org, user_id: effectiveUserId })
-      .select()
-      .single()
+    const { data, error: createError } = await runSupabaseQueryWithRetry<{
+      data: Organization | null
+      error: SupabaseErrorLike
+    }>(
+      'create organization',
+      (supabase, signal) =>
+        supabase
+          .from('organizations')
+          .insert({ ...org, user_id: effectiveUserId })
+          .select()
+          .single()
+          .abortSignal(signal)
+    )
 
     if (createError) {
       console.error('[useOrganizations] Error creating:', createError)
       if (createError.message?.includes('timeout')) {
         setError('Request timed out. Please check your connection and try again.')
       } else {
-        setError(createError.message)
+        setError(createError.message ?? 'Failed to create organization')
       }
       return null
     }
 
     console.log('[useOrganizations] Organization created:', data)
+    if (!data) {
+      setError('Failed to create organization')
+      return null
+    }
+
     const updatedOrgs = [data, ...organizations]
     setOrganizations(updatedOrgs)
     setToLocalStorage('shiftflow_orgs', updatedOrgs)
@@ -282,14 +293,20 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
     if (!supabaseConfigured) return false
     setError(null)
 
-    const supabase = createClient()
-    const { error: updateError } = await supabase
-      .from('organizations')
-      .update(updates)
-      .eq('id', id)
+    const { error: updateError } = await runSupabaseQueryWithRetry<{
+      error: SupabaseErrorLike
+    }>(
+      'update organization',
+      (supabase, signal) =>
+        supabase
+          .from('organizations')
+          .update(updates)
+          .eq('id', id)
+          .abortSignal(signal)
+    )
 
     if (updateError) {
-      setError(updateError.message)
+      setError(updateError.message ?? 'Failed to update organization')
       return false
     }
 
@@ -303,14 +320,20 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
     if (!supabaseConfigured) return false
     setError(null)
 
-    const supabase = createClient()
-    const { error: deleteError } = await supabase
-      .from('organizations')
-      .delete()
-      .eq('id', id)
+    const { error: deleteError } = await runSupabaseQueryWithRetry<{
+      error: SupabaseErrorLike
+    }>(
+      'delete organization',
+      (supabase, signal) =>
+        supabase
+          .from('organizations')
+          .delete()
+          .eq('id', id)
+          .abortSignal(signal)
+    )
 
     if (deleteError) {
-      setError(deleteError.message)
+      setError(deleteError.message ?? 'Failed to delete organization')
       return false
     }
 
