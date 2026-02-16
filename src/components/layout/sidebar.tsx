@@ -91,6 +91,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             onClick={handleNavClick}
             className={cn(
               'flex items-center gap-4 px-4 py-4 rounded-xl text-xl font-medium transition-colors',

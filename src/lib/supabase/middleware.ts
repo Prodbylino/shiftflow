@@ -3,7 +3,19 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
+  const isRscRequest = request.nextUrl.searchParams.has('_rsc')
+  const isPrefetch =
+    request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('next-router-prefetch') === '1'
   console.log('[mw]', pathname, 'hasCookies', request.cookies.getAll().length)
+
+  // Skip auth refresh for RSC/prefetch requests to avoid repeated auth roundtrips
+  // on every background route prefetch.
+  if (isRscRequest || isPrefetch) {
+    return NextResponse.next({
+      request,
+    })
+  }
 
   let supabaseResponse = NextResponse.next({
     request,
