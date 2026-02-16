@@ -1,26 +1,27 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 const SHIFTS_STORAGE_KEY = 'shiftflow_shifts'
-const FETCH_TIMEOUT_MS = 15000
 
+// Check if Supabase is configured
 const isSupabaseConfigured = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  return Boolean(url && key && url !== 'your_supabase_project_url' && url.startsWith('http'))
+  return url && key && url !== 'your_supabase_project_url' && url.startsWith('http')
 }
 
-const getFromLocalStorage = <T,>(key: string, fallback: T): T => {
-  if (typeof window === 'undefined') return fallback
+// Helper to safely access localStorage
+const getFromLocalStorage = (key: string) => {
+  if (typeof window === 'undefined') return null
   try {
     const item = localStorage.getItem(key)
-    return item ? (JSON.parse(item) as T) : fallback
+    return item ? JSON.parse(item) : null
   } catch {
-    return fallback
+    return null
   }
 }
 
@@ -33,17 +34,73 @@ const setToLocalStorage = (key: string, value: unknown) => {
   }
 }
 
-const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
+const formatSupabaseError = (error: unknown, fallback: string): string => {
+  if (!error || typeof error !== 'object') {
+    return fallback
+  }
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${FETCH_TIMEOUT_MS}ms`))
-    }, FETCH_TIMEOUT_MS)
-  })
+  const parsed = error as {
+    message?: string
+    code?: string
+    details?: string
+    hint?: string
+  }
+
+  if (!parsed.message) {
+    return fallback
+  }
+
+  const extra: string[] = []
+  if (parsed.code) extra.push(`code=${parsed.code}`)
+  if (parsed.details) extra.push(`details=${parsed.details}`)
+  if (parsed.hint) extra.push(`hint=${parsed.hint}`)
+
+  return extra.length > 0 ? `${parsed.message} (${extra.join(', ')})` : parsed.message
+}
+
+type SupabaseErrorLike = {
+  message?: string
+  code?: string
+  details?: string
+  hint?: string
+}
+
+type AuthUserResponse = {
+  data: { user: { id: string } | null }
+  error: SupabaseErrorLike | null
+}
+
+type AuthSessionResponse = {
+  data: { session: { user: { id: string } } | null }
+  error: SupabaseErrorLike | null
+}
+
+type MutationCountResponse = {
+  error: SupabaseErrorLike | null
+  count: number | null
+}
+
+type CreateShiftResponse = {
+  data: Shift | null
+  error: SupabaseErrorLike | null
+}
+
+const runWithTimeout = async <T>(
+  operation: PromiseLike<T>,
+  label: string,
+  timeoutMs = 15000
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
 
   try {
-    return await Promise.race([Promise.resolve(promise), timeoutPromise])
+    return await Promise.race<T>([
+      Promise.resolve(operation),
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+        }, timeoutMs)
+      }),
+    ])
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId)
@@ -55,8 +112,6 @@ interface UseShiftsOptions {
   startDate?: Date
   endDate?: Date
   organizationId?: string
-  userId?: string | null
-  authLoading?: boolean
 }
 
 interface UseShiftsReturn {
@@ -70,300 +125,445 @@ interface UseShiftsReturn {
 }
 
 export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
-  const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
-  const externalUserId = options?.userId
-  const externalAuthLoading = options?.authLoading ?? false
-  const usingExternalAuth = typeof externalUserId !== 'undefined'
-
-  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() =>
-    getFromLocalStorage<ShiftWithOrganization[]>(SHIFTS_STORAGE_KEY, [])
-  )
-  const [loading, setLoading] = useState(usingExternalAuth ? externalAuthLoading : supabaseConfigured)
+  const [shifts, setShifts] = useState<ShiftWithOrganization[]>(() => getFromLocalStorage(SHIFTS_STORAGE_KEY) || [])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(externalUserId ?? null)
+  // CRITICAL FIX: Initialize userId from localStorage to avoid needing API calls after refresh
+  // This ensures userId is available immediately, avoiding all timeout issues
+  const [userId, setUserId] = useState<string | null>(() => {
+    const storedUser = getFromLocalStorage('shiftflow_user')
+    return storedUser?.id || null
+  })
+  const sessionHandledRef = useRef(false)
+  const loadingCompletedRef = useRef(false)
 
-  const startDateStr = options?.startDate?.toISOString().split('T')[0]
-  const endDateStr = options?.endDate?.toISOString().split('T')[0]
+  const supabaseConfigured = useMemo(() => isSupabaseConfigured(), [])
+
+  // Stabilize options to prevent infinite loops
+  const startDateStr = options?.startDate?.toISOString()
+  const endDateStr = options?.endDate?.toISOString()
   const organizationId = options?.organizationId
 
-  const applyShifts = useCallback((data: ShiftWithOrganization[] | null | undefined) => {
+  const applyFetchedShifts = useCallback((data: ShiftWithOrganization[] | null | undefined) => {
     const next = (data || []) as ShiftWithOrganization[]
     setShifts(next)
     setToLocalStorage(SHIFTS_STORAGE_KEY, next)
   }, [])
 
-  const fetchShiftsForUser = useCallback(async (uid: string): Promise<boolean> => {
+  const queryShiftsForUser = useCallback(async (uid: string) => {
     const supabase = createClient()
-    console.log('[useShifts] Fetching shifts for user:', uid)
 
+    let query = supabase
+      .from('shifts')
+      .select(`
+        *,
+        organization:organizations(*)
+      `)
+      .eq('user_id', uid)
+      .order('date', { ascending: true })
+
+    if (startDateStr) {
+      query = query.gte('date', startDateStr.split('T')[0])
+    }
+    if (endDateStr) {
+      query = query.lte('date', endDateStr.split('T')[0])
+    }
+    if (organizationId) {
+      query = query.eq('organization_id', organizationId)
+    }
+
+    return query
+  }, [startDateStr, endDateStr, organizationId])
+
+  const syncShiftsForUser = useCallback(async (uid: string): Promise<boolean> => {
     try {
-      let query = supabase
-        .from('shifts')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', uid)
-        .order('date', { ascending: true })
+      const { data, error: fetchError } = await runWithTimeout(
+        queryShiftsForUser(uid),
+        'fetch shifts'
+      )
 
-      if (startDateStr) {
-        query = query.gte('date', startDateStr)
-      }
-      if (endDateStr) {
-        query = query.lte('date', endDateStr)
-      }
-      if (organizationId) {
-        query = query.eq('organization_id', organizationId)
-      }
-
-      const { data, error: fetchError } = await withTimeout<{
-        data: ShiftWithOrganization[] | null
-        error: { message: string } | null
-      }>(query, 'fetch shifts')
 
       if (fetchError) {
-        setError(fetchError.message)
+        const message = formatSupabaseError(fetchError, 'Failed to load shifts')
         console.error('[useShifts] Error fetching shifts:', fetchError)
+        setError(message)
+        // CRITICAL FIX: Don't clear existing shifts on fetch error - preserve current state
+        // Only clear on initial load, not on sync after mutation
+        // applyFetchedShifts([]) // REMOVED - this was wiping out the calendar
         return false
       }
 
       setError(null)
-      applyShifts((data || []) as ShiftWithOrganization[])
-      console.log('[useShifts] Fetched shifts from DB:', (data || []).length, 'shifts')
+      applyFetchedShifts((data || []) as ShiftWithOrganization[])
       return true
-    } catch (fetchException) {
-      const message = fetchException instanceof Error
-        ? fetchException.message
-        : 'Failed to fetch shifts'
-      setError(message)
-      console.error('[useShifts] Exception while fetching shifts:', fetchException)
+    } catch (err) {
+      console.error('[useShifts] Exception while fetching shifts:', err)
+      setError('Failed to load shifts')
+      // CRITICAL FIX: Don't clear existing shifts on exception - preserve current state
+      // applyFetchedShifts([]) // REMOVED - this was wiping out the calendar
       return false
     }
-  }, [applyShifts, endDateStr, organizationId, startDateStr])
+  }, [queryShiftsForUser, applyFetchedShifts])
 
-  const requireUserId = useCallback(async (): Promise<string | null> => {
-    if (externalUserId) return externalUserId
-    if (userId) return userId
-    if (!supabaseConfigured) return null
-
-    const supabase = createClient()
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error('[useShifts] requireUserId getSession error', sessionError)
-      return null
-    }
-
-    const sessionUserId = session?.user?.id || null
-    if (!sessionUserId) {
-      console.warn('[useShifts] requireUserId: no session user found')
-    }
-    if (sessionUserId) {
-      setUserId(sessionUserId)
-    }
-
-    return sessionUserId
-  }, [supabaseConfigured, userId, externalUserId])
-
+  // Use onAuthStateChange for session detection
   useEffect(() => {
     if (!supabaseConfigured) {
+      setLoading(false)
+      loadingCompletedRef.current = true
       return
-    }
-
-    if (usingExternalAuth) {
-      if (externalAuthLoading) return
-
-      if (!externalUserId) {
-        return
-      }
-
-      let isMounted = true
-      const startLoadingTimer = window.setTimeout(() => {
-        if (isMounted) setLoading(true)
-      }, 0)
-      const fallbackTimer = window.setTimeout(() => {
-        if (!isMounted) return
-        setLoading(false)
-        setError((prev) => prev ?? 'Loading shifts is taking longer than expected.')
-      }, FETCH_TIMEOUT_MS + 1000)
-      const fetchTimer = window.setTimeout(() => {
-        void fetchShiftsForUser(externalUserId)
-          .finally(() => {
-            window.clearTimeout(startLoadingTimer)
-            window.clearTimeout(fallbackTimer)
-            if (isMounted) setLoading(false)
-          })
-      }, 0)
-
-      return () => {
-        isMounted = false
-        window.clearTimeout(startLoadingTimer)
-        window.clearTimeout(fallbackTimer)
-        window.clearTimeout(fetchTimer)
-      }
     }
 
     const supabase = createClient()
     let isMounted = true
+    sessionHandledRef.current = false
+    loadingCompletedRef.current = false
 
-    const finishLoading = () => {
-      if (isMounted) {
+    const completeLoading = () => {
+      if (isMounted && !loadingCompletedRef.current) {
         setLoading(false)
+        loadingCompletedRef.current = true
       }
     }
 
-    const handleSession = async (session: Session | null) => {
+    const fetchShiftsData = async (uid: string) => {
+      console.log('[useShifts] Fetching shifts for user:', uid)
+
+      try {
+        const { data, error: fetchError } = await runWithTimeout(
+          queryShiftsForUser(uid),
+          'fetch shifts',
+          10000 // Shorter timeout (10s instead of 15s) to fail faster
+        )
+
+        if (!isMounted) return
+
+
+        if (fetchError) {
+          console.error('[useShifts] Error fetching shifts:', fetchError)
+          setError(formatSupabaseError(fetchError, 'Failed to load shifts'))
+          // CRITICAL FIX: Only clear shifts on initial load (when shifts.length is 0)
+          // Don't clear existing shifts on refresh errors - preserve current state
+          if (shifts.length === 0) {
+            applyFetchedShifts([])
+          }
+        } else {
+          console.log('[useShifts] Fetched shifts from DB:', data?.length || 0, 'shifts')
+          setError(null)
+          applyFetchedShifts((data || []) as ShiftWithOrganization[])
+        }
+      } catch (err) {
+        if (!isMounted) return
+        console.error('[useShifts] Exception while fetching shifts:', err)
+        setError('Failed to load shifts')
+        // CRITICAL FIX: Only clear shifts on initial load
+        if (shifts.length === 0) {
+          applyFetchedShifts([])
+        } else {
+        }
+      }
+    }
+
+    const handleSession = async (session: { user: { id: string } } | null, source: string) => {
       if (!isMounted) return
 
-      if (session?.user?.id) {
-        setUserId(session.user.id)
-        await fetchShiftsForUser(session.user.id)
-      } else {
-        setUserId(null)
-        // Keep cached shifts while auth is resolving/refreshed.
-        setError(null)
-      }
+      console.log('[useShifts] handleSession called from:', source, 'userId:', session?.user?.id)
 
-      finishLoading()
+      // Prevent duplicate handling
+      if (sessionHandledRef.current && source !== 'auth_change') {
+        console.log('[useShifts] Session already handled, skipping')
+        return
+      }
+      sessionHandledRef.current = true
+
+      try {
+        if (session?.user) {
+          console.log('[useShifts] User authenticated, setting userId:', session.user.id)
+          setUserId(session.user.id)
+          await fetchShiftsData(session.user.id)
+        } else {
+          console.log('[useShifts] No session, clearing data')
+          setUserId(null)
+          applyFetchedShifts([])
+        }
+      } catch (sessionError) {
+        console.error('[useShifts] Error in handleSession:', sessionError)
+      } finally {
+        completeLoading()
+      }
     }
 
+    // Get initial session immediately - this reads from cookies
     const loadInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        await handleSession(session)
+        await handleSession(session, 'get_session')
       } catch (sessionError) {
-        console.error('[useShifts] loadInitialSession error', sessionError)
-        finishLoading()
+        console.error('[useShifts] Error getting session:', sessionError)
+        completeLoading()
       }
     }
-
     loadInitialSession()
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         if (!isMounted) return
 
-        if (event === 'SIGNED_OUT') {
-          setUserId(null)
-          applyShifts([])
-          setError(null)
-          finishLoading()
-          return
-        }
-
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-          await handleSession(session)
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          sessionHandledRef.current = false
+          await handleSession(session, 'auth_change')
+        } else if (event === 'INITIAL_SESSION') {
+          await handleSession(session, 'auth_change')
         }
       }
     )
 
+    // Safety timeout - ensure loading completes within 3 seconds
     const timeout = setTimeout(() => {
-      finishLoading()
-    }, 6000)
+      completeLoading()
+    }, 3000)
 
     return () => {
       isMounted = false
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [applyShifts, fetchShiftsForUser, supabaseConfigured, usingExternalAuth, externalAuthLoading, externalUserId])
+  }, [supabaseConfigured, queryShiftsForUser, applyFetchedShifts])
 
-  const refetch = useCallback(async () => {
-    const uid = await requireUserId()
-    if (!uid) return
-    await fetchShiftsForUser(uid)
-  }, [fetchShiftsForUser, requireUserId])
-
-  const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
-    if (!supabaseConfigured) return null
-
-    const uid = await requireUserId()
-    if (!uid) {
-      setError('Not authenticated')
-      return null
+  const fetchShifts = useCallback(async () => {
+    if (!userId || !supabaseConfigured) {
+      return
     }
 
-    setError(null)
+    await syncShiftsForUser(userId)
+  }, [userId, supabaseConfigured, syncShiftsForUser])
+
+  const resolveUserId = useCallback(async () => {
+    console.log('[useShifts] resolveUserId called, current userId state:', userId, 'type:', typeof userId, 'truthy:', !!userId)
+    
+    // CRITICAL FIX: If userId is already set, use it immediately - no API calls needed
+    // This is the fastest path and avoids all timeout issues
+    if (userId) {
+      console.log('[useShifts] Using existing userId from state (NO API CALL):', userId)
+      return userId
+    }
+    
+    console.warn('[useShifts] WARNING: userId is null/undefined, will attempt getSession() - this should be rare after page load')
+
     const supabase = createClient()
 
-    const { data, error: createError } = await supabase
-      .from('shifts')
-      .insert({ ...shift, user_id: uid })
-      .select(`
-        *,
-        organization:organizations(*)
-      `)
-      .single()
-
-    console.log('[useShifts] createShift result', { data, error: createError })
-
-    if (createError) {
-      setError(createError.message)
-      return null
+    // CRITICAL FIX: ONLY use getSession() - NEVER call getUser() as it always times out after refresh
+    // getSession() reads from cookies and is much faster/more reliable
+    console.log('[useShifts] userId not set, using getSession() ONLY (no getUser fallback)')
+    try {
+      // Use a shorter timeout (3s) and if it fails, we'll return null
+      const getSessionResponse = await runWithTimeout(
+        supabase.auth.getSession(),
+        'auth.getSession',
+        3000 // Very short timeout (3s) to fail fast
+      ) as AuthSessionResponse
+      const { data: { session } } = getSessionResponse
+      const sessionUserId = session?.user?.id || null
+      console.log('[useShifts] getSession() returned:', sessionUserId)
+      if (sessionUserId) {
+        setUserId(sessionUserId)
+        return sessionUserId
+      }
+    } catch (getSessionError) {
+      console.error('[useShifts] getSession() failed (no fallback to getUser):', getSessionError)
     }
 
-    await fetchShiftsForUser(uid)
-    return data as Shift
+    return null
+  }, [userId])
+
+  const createShift = async (shift: Omit<ShiftInsert, 'user_id'>): Promise<Shift | null> => {
+    try {
+      console.log('[useShifts] createShift START')
+      if (!supabaseConfigured) {
+        console.error('[useShifts] Supabase not configured')
+        return null
+      }
+
+      const effectiveUserId = await resolveUserId()
+      if (!effectiveUserId) {
+        setError('Session expired, please log in again')
+        return null
+      }
+
+      setError(null)
+
+      const supabase = createClient()
+      
+      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
+      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
+      // The database RLS policies will enforce security anyway
+
+      const insertPayload = { ...shift, user_id: effectiveUserId }
+      console.log('[useShifts] Inserting shift to database:', insertPayload)
+
+      const createResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .insert(insertPayload)
+          .select('*')
+          .single(),
+        'create shift',
+        10000 // Shorter timeout for create (10s)
+      ) as CreateShiftResponse
+      const { data, error: createError } = createResponse
+
+
+      if (createError) {
+        console.error('[useShifts] Error creating shift:', createError)
+        setError(formatSupabaseError(createError, 'Failed to create shift'))
+        // CRITICAL FIX: Don't sync on error - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED - this was causing issues
+        return null
+      }
+
+      // Keep local state consistent even if follow-up fetch fails
+      const syncSuccess = await syncShiftsForUser(effectiveUserId)
+      if (!syncSuccess) {
+        setError('Shift created, but refresh failed. Please reload to see latest data.')
+
+        if (data) {
+          const optimisticShift = data as ShiftWithOrganization
+          setShifts((prev) => {
+            const exists = prev.some((shiftItem) => shiftItem.id === optimisticShift.id)
+            const next = exists ? prev : [...prev, optimisticShift]
+            setToLocalStorage(SHIFTS_STORAGE_KEY, next)
+            return next
+          })
+        }
+      }
+
+      console.log('[useShifts] createShift END')
+      return data as Shift
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in createShift:', mutationError)
+      setError('Failed to create shift')
+      return null
+    }
   }
 
   const updateShift = async (id: string, updates: ShiftUpdate): Promise<boolean> => {
-    if (!supabaseConfigured) return false
+    try {
+      console.log('[useShifts] updateShift START, id:', id)
+      if (!supabaseConfigured) {
+        console.error('[useShifts] Supabase not configured')
+        return false
+      }
 
-    const uid = await requireUserId()
-    if (!uid) {
-      setError('Not authenticated')
+      const effectiveUserId = await resolveUserId()
+      if (!effectiveUserId) {
+        setError('Session expired, please log in again')
+        return false
+      }
+
+      setError(null)
+
+      const supabase = createClient()
+      const updateResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .update(updates, { count: 'exact' })
+          .eq('id', id)
+          .eq('user_id', effectiveUserId),
+        'update shift'
+      ) as MutationCountResponse
+      const { error: updateError, count } = updateResponse
+
+      if (updateError) {
+        console.error('[useShifts] Error updating shift:', updateError)
+        setError(formatSupabaseError(updateError, 'Failed to update shift'))
+        return false
+      }
+
+      if (!count) {
+        setError('Shift not found or permission denied')
+        return false
+      }
+
+      await syncShiftsForUser(effectiveUserId)
+
+      console.log('[useShifts] updateShift END')
+      return true
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in updateShift:', mutationError)
+      setError('Failed to update shift')
       return false
     }
-
-    setError(null)
-    const supabase = createClient()
-
-    const { data, error: updateError } = await supabase
-      .from('shifts')
-      .update(updates)
-      .eq('id', id)
-      .eq('user_id', uid)
-      .select('id')
-
-    console.log('[useShifts] updateShift result', { data, error: updateError })
-
-    if (updateError) {
-      setError(updateError.message)
-      return false
-    }
-
-    await fetchShiftsForUser(uid)
-    return true
   }
 
   const deleteShift = async (id: string): Promise<boolean> => {
-    if (!supabaseConfigured) return false
+    try {
+      console.log('[useShifts] deleteShift START, id:', id)
+      if (!supabaseConfigured) {
+        console.error('[useShifts] Supabase not configured')
+        return false
+      }
 
-    const uid = await requireUserId()
-    if (!uid) {
-      setError('Not authenticated')
+      const effectiveUserId = await resolveUserId()
+      if (!effectiveUserId) {
+        setError('Session expired, please log in again')
+        return false
+      }
+
+      setError(null)
+
+      const supabase = createClient()
+      
+      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
+      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
+      // The database RLS policies will enforce security anyway
+
+      console.log('[useShifts] Deleting shift from database, shift id:', id)
+
+      const deleteResponse = await runWithTimeout(
+        supabase
+          .from('shifts')
+          .delete({ count: 'exact' })
+          .eq('id', id)
+          .eq('user_id', effectiveUserId),
+        'delete shift',
+        10000 // Shorter timeout for delete (10s)
+      ) as MutationCountResponse
+      const { error: deleteError, count } = deleteResponse
+
+
+      if (deleteError) {
+        console.error('[useShifts] Error deleting shift:', deleteError)
+        setError(formatSupabaseError(deleteError, 'Failed to delete shift'))
+        // CRITICAL FIX: Don't sync on error - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED - this was causing calendar wipeout
+        return false
+      }
+
+      if (!count || count === 0) {
+        setError('Shift not found or permission denied')
+        // CRITICAL FIX: Don't sync on not found - preserve current state
+        // await syncShiftsForUser(effectiveUserId) // REMOVED
+        return false
+      }
+
+      // Keep local state consistent even if follow-up fetch fails
+      const syncSuccess = await syncShiftsForUser(effectiveUserId)
+      if (!syncSuccess) {
+        setError('Shift deleted, but refresh failed. Please reload to see latest data.')
+        setShifts((prev) => {
+          const next = prev.filter((shiftItem) => shiftItem.id !== id)
+          setToLocalStorage(SHIFTS_STORAGE_KEY, next)
+          return next
+        })
+      }
+
+      console.log('[useShifts] deleteShift END')
+      return true
+    } catch (mutationError) {
+      console.error('[useShifts] EXCEPTION in deleteShift:', mutationError)
+      setError('Failed to delete shift')
       return false
     }
-
-    setError(null)
-    const supabase = createClient()
-
-    const { data, error: deleteError } = await supabase
-      .from('shifts')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', uid)
-      .select('id')
-
-    console.log('[useShifts] deleteShift result', { data, error: deleteError })
-
-    if (deleteError) {
-      setError(deleteError.message)
-      return false
-    }
-
-    await fetchShiftsForUser(uid)
-    return true
   }
 
   return {
@@ -373,6 +573,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
     createShift,
     updateShift,
     deleteShift,
-    refetch,
+    refetch: fetchShifts,
   }
 }
