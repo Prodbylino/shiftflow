@@ -226,10 +226,9 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         if (!isMounted) return
         console.error('[useShifts] Exception while fetching shifts:', err)
         setError('Failed to load shifts')
-        // CRITICAL FIX: Only clear shifts on initial load
+        // Only clear shifts on initial load
         if (shifts.length === 0) {
           applyFetchedShifts([])
-        } else {
         }
       }
     }
@@ -250,7 +249,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
         if (session?.user) {
           console.log('[useShifts] User authenticated, setting userId:', session.user.id)
           setUserId(session.user.id)
-          await fetchShiftsData(session.user.id)
+          void fetchShiftsData(session.user.id)
         } else {
           console.log('[useShifts] No session, clearing data')
           setUserId(null)
@@ -299,7 +298,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [supabaseConfigured, queryShiftsForUser, applyFetchedShifts])
+  }, [supabaseConfigured, queryShiftsForUser, applyFetchedShifts, shifts.length])
 
   const fetchShifts = useCallback(async () => {
     if (!userId || !supabaseConfigured) {
@@ -360,10 +359,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       const supabase = createClient()
       
-      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
-      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
-      // The database RLS policies will enforce security anyway
-
       const insertPayload = { ...shift, user_id: effectiveUserId }
       console.log('[useShifts] Inserting shift to database:', insertPayload)
 
@@ -472,10 +467,6 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
 
       const supabase = createClient()
       
-      // CRITICAL FIX: Skip session verification - we already have userId from resolveUserId()
-      // getSession() can also timeout, so we trust the userId we got from resolveUserId()
-      // The database RLS policies will enforce security anyway
-
       console.log('[useShifts] Deleting shift from database, shift id:', id)
 
       const deleteResponse = await supabase

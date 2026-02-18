@@ -104,8 +104,8 @@ export function useAuth(): UseAuthReturn {
         if (session?.user) {
           setUser(session.user)
           setToLocalStorage('shiftflow_user', session.user)
-          // Load profile and wait for it to complete
-          await fetchProfile(session.user.id, supabase)
+          // Load profile in background so UI can render immediately
+          void fetchProfile(session.user.id, supabase)
         } else {
           setUser(null)
           setProfile(null)

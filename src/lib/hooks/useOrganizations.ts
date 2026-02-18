@@ -114,8 +114,8 @@ export function useOrganizations(): UseOrganizationsReturn {
       try {
         if (session?.user) {
           setUserId(session.user.id)
-          // Fetch organizations and wait for completion
-          await fetchOrgs(session.user.id)
+          // Fetch organizations in background so UI can render immediately
+          void fetchOrgs(session.user.id)
         } else {
           setUserId(null)
           setOrganizations([])
