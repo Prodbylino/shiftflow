@@ -132,7 +132,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="h-full min-h-0 flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shrink-0">
         <div className="px-3 md:px-6 h-14 md:h-16 flex items-center justify-between">
@@ -171,15 +171,17 @@ export default function DashboardPage() {
       )}
 
       {/* Main Content - Calendar fills remaining space */}
-      <main className="flex-1 p-2 md:p-4 overflow-auto">
-        <div className="bg-white rounded-xl md:rounded-2xl p-3 md:p-6 shadow-sm min-h-[calc(100vh-8rem)]">
-          <MonthCalendar
-            shifts={calendarShifts}
-            organizations={calendarOrganizations}
-            onAddShift={handleAddShift}
-            onEditShift={handleEditShift}
-            onDeleteShift={handleDeleteShift}
-          />
+      <main className="flex-1 min-h-0 p-2 md:p-4 overflow-hidden">
+        <div className="h-full min-h-0 bg-white rounded-xl md:rounded-2xl p-2 md:p-4 lg:p-6 shadow-sm flex flex-col">
+          <div className="flex-1 min-h-0">
+            <MonthCalendar
+              shifts={calendarShifts}
+              organizations={calendarOrganizations}
+              onAddShift={handleAddShift}
+              onEditShift={handleEditShift}
+              onDeleteShift={handleDeleteShift}
+            />
+          </div>
         </div>
       </main>
     </div>

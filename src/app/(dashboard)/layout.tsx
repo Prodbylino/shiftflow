@@ -33,14 +33,14 @@ export default function DashboardLayout({
 
   return (
     <DashboardAuthProvider value={{ user, profile, signOut }}>
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex min-h-screen min-h-dvh bg-gray-50">
         <Sidebar
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />
-        <div className="flex-1 flex flex-col overflow-auto">
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <MobileHeader onMenuClick={() => setMobileMenuOpen(true)} />
-          <main className="flex-1">
+          <main className="flex-1 min-h-0">
             {children}
           </main>
         </div>

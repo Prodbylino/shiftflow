@@ -574,8 +574,11 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
 
   // Month View Component
   const renderMonthView = () => (
-    <div className="flex-1 overflow-hidden">
-      <div className="grid grid-cols-8 gap-0.5 h-full">
+    <div className="flex-1 min-h-0 overflow-auto">
+      <div
+        className="grid grid-cols-8 gap-0.5 h-full min-w-[760px] md:min-w-0"
+        style={{ gridTemplateRows: `auto repeat(${weeksData.length}, minmax(0, 1fr))` }}
+      >
         {/* Header Row */}
         {weekDays.map((day) => (
           <div key={day} className="text-center text-base font-semibold text-gray-600 py-2">
@@ -596,7 +599,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
                   key={`${weekIndex}-${dayIndex}`}
                   onClick={() => handleDayClick(day)}
                   className={`
-                    calendar-cell p-1.5 cursor-pointer border border-gray-100 rounded-lg overflow-hidden
+                    calendar-cell p-1.5 min-h-0 cursor-pointer border border-gray-100 rounded-lg overflow-hidden
                     ${!day ? 'bg-gray-50 cursor-default' : 'bg-white hover:bg-blue-50'}
                     ${isToday(day) ? 'ring-2 ring-blue-500 ring-inset' : ''}
                   `}
@@ -680,24 +683,24 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
   )
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3 md:mb-6">
+        <div className="flex items-center gap-2 md:gap-4 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
           <button
             onClick={prevPeriod}
-            className="w-12 h-12 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+            className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors shrink-0"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6"/>
             </svg>
           </button>
-          <h2 className="text-3xl font-bold font-display min-w-[280px] text-center">
+          <h2 className="text-xl md:text-3xl font-bold font-display min-w-[180px] md:min-w-[280px] text-center shrink-0">
             {viewMode === 'month' ? formatMonth() : formatWeekRange()}
           </h2>
           <button
             onClick={nextPeriod}
-            className="w-12 h-12 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+            className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors shrink-0"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m9 18 6-6-6-6"/>
@@ -706,17 +709,17 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
           <Button
             variant="outline"
             onClick={goToToday}
-            className="h-12 px-6 text-lg rounded-xl ml-2"
+            className="h-10 md:h-12 px-4 md:px-6 text-sm md:text-lg rounded-xl md:ml-2 shrink-0"
           >
             {t('calendar.today')}
           </Button>
         </div>
 
         {/* View Toggle */}
-        <div className="flex gap-2 bg-gray-100 p-1 rounded-xl">
+        <div className="flex gap-1.5 md:gap-2 bg-gray-100 p-1 rounded-xl self-end md:self-auto">
           <button
             onClick={() => setViewMode('month')}
-            className={`px-6 py-2 rounded-lg text-lg font-medium transition-colors ${
+            className={`px-4 md:px-6 py-1.5 md:py-2 rounded-lg text-sm md:text-lg font-medium transition-colors ${
               viewMode === 'month' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -724,7 +727,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
           </button>
           <button
             onClick={() => setViewMode('week')}
-            className={`px-6 py-2 rounded-lg text-lg font-medium transition-colors ${
+            className={`px-4 md:px-6 py-1.5 md:py-2 rounded-lg text-sm md:text-lg font-medium transition-colors ${
               viewMode === 'week' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
             }`}
           >
