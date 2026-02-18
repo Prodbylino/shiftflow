@@ -61,7 +61,7 @@ export function useAuth(): UseAuthReturn {
         .single()
       setProfile(profileData)
       setToLocalStorage('shiftflow_profile', profileData)
-    } catch (err) {
+    } catch {
       // Profile fetch failed, continue without profile
       setProfile(null)
       setToLocalStorage('shiftflow_profile', null)
@@ -109,8 +109,8 @@ export function useAuth(): UseAuthReturn {
           setLastActivity()
           setUser(session.user)
           setToLocalStorage('shiftflow_user', session.user)
-          // Load profile and wait for it to complete
-          await fetchProfile(session.user.id, supabase)
+          // Load profile in background so UI can render immediately
+          void fetchProfile(session.user.id, supabase)
         } else {
           setUser(null)
           setProfile(null)

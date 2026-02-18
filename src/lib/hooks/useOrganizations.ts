@@ -245,6 +245,23 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
     }
   }, [userId, supabaseConfigured, fetchOrgsForUser])
 
+
+  const resolveUserId = useCallback(async () => {
+    if (userId) return userId
+
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const sessionUserId = session?.user?.id || null
+      if (sessionUserId) {
+        setUserId(sessionUserId)
+      }
+      return sessionUserId
+    } catch {
+      return null
+    }
+  }, [userId])
+
   const createOrganization = async (org: Omit<OrganizationInsert, 'user_id'>): Promise<Organization | null> => {
     if (!supabaseConfigured) return null
     setError(null)
