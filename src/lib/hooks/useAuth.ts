@@ -28,6 +28,11 @@ const setLastActivity = (timestamp: number = Date.now()) => {
   window.localStorage.setItem(LAST_ACTIVITY_KEY, String(timestamp))
 }
 
+const clearLastActivity = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(LAST_ACTIVITY_KEY)
+}
+
 const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
@@ -90,18 +95,23 @@ export function useAuth(): UseAuthReturn {
       }
     }
 
-    const handleSession = async (session: Session | null) => {
+    const handleSession = async (
+      session: Session | null,
+      trigger: AuthChangeEvent | 'INITIAL_LOAD' = 'INITIAL_LOAD'
+    ) => {
       if (!isMounted) return
 
       try {
         if (session?.user) {
-          const lastActivity = getLastActivity()
+          const shouldEnforceInactivity = trigger !== 'SIGNED_IN'
+          const lastActivity = shouldEnforceInactivity ? getLastActivity() : null
           if (lastActivity && Date.now() - lastActivity > INACTIVITY_LIMIT_MS) {
             await supabase.auth.signOut()
             setUser(null)
             setProfile(null)
             setToLocalStorage('shiftflow_user', null)
             setToLocalStorage('shiftflow_profile', null)
+            clearLastActivity()
             window.location.href = '/login?reason=timeout'
             return
           }
@@ -116,6 +126,7 @@ export function useAuth(): UseAuthReturn {
           setProfile(null)
           setToLocalStorage('shiftflow_user', null)
           setToLocalStorage('shiftflow_profile', null)
+          clearLastActivity()
         }
       } catch (error) {
         console.error('Error in handleSession:', error)
@@ -128,7 +139,7 @@ export function useAuth(): UseAuthReturn {
     const loadInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        await handleSession(session)
+        await handleSession(session, 'INITIAL_LOAD')
       } catch (error) {
         console.error('Error getting session:', error)
         completeLoading()
@@ -146,7 +157,7 @@ export function useAuth(): UseAuthReturn {
           event === 'TOKEN_REFRESHED' ||
           event === 'INITIAL_SESSION'
         ) {
-          await handleSession(session)
+          await handleSession(session, event)
         }
       }
     )
@@ -192,6 +203,7 @@ export function useAuth(): UseAuthReturn {
       setProfile(null)
       setToLocalStorage('shiftflow_user', null)
       setToLocalStorage('shiftflow_profile', null)
+      clearLastActivity()
       window.location.href = '/login?reason=timeout'
     }
 
@@ -236,9 +248,7 @@ export function useAuth(): UseAuthReturn {
       const supabase = createClient()
       await supabase.auth.signOut()
     }
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(LAST_ACTIVITY_KEY)
-    }
+    clearLastActivity()
     window.location.href = '/login'
   }
 
