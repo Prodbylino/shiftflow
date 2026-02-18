@@ -23,7 +23,7 @@ const getFromLocalStorage = (key: string) => {
   }
 }
 
-const setToLocalStorage = (key: string, value: any) => {
+const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(key, JSON.stringify(value))
@@ -59,7 +59,7 @@ export function useAuth(): UseAuthReturn {
         .single()
       setProfile(profileData)
       setToLocalStorage('shiftflow_profile', profileData)
-    } catch (err) {
+    } catch {
       // Profile fetch failed, continue without profile
       setProfile(null)
       setToLocalStorage('shiftflow_profile', null)

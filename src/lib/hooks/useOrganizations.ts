@@ -23,7 +23,7 @@ const getFromLocalStorage = (key: string) => {
   }
 }
 
-const setToLocalStorage = (key: string, value: any) => {
+const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(key, JSON.stringify(value))
@@ -96,7 +96,7 @@ export function useOrganizations(): UseOrganizationsReturn {
           setOrganizations(data || [])
           setToLocalStorage('shiftflow_orgs', data || [])
         }
-      } catch (err) {
+      } catch {
         if (!isMounted) return
         setError('Failed to load organizations')
         setOrganizations([])
@@ -186,7 +186,7 @@ export function useOrganizations(): UseOrganizationsReturn {
       } else {
         setOrganizations(data || [])
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch organizations')
     }
   }, [userId, supabaseConfigured])

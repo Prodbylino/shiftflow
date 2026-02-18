@@ -65,11 +65,6 @@ type SupabaseErrorLike = {
   hint?: string
 }
 
-type AuthUserResponse = {
-  data: { user: { id: string } | null }
-  error: SupabaseErrorLike | null
-}
-
 type AuthSessionResponse = {
   data: { session: { user: { id: string } } | null }
   error: SupabaseErrorLike | null
