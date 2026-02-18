@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useI18n, LanguageSwitch } from '@/lib/i18n'
 import { UserMenu } from '@/components/calendar/UserMenu'
-import { useAuth, useOrganizations } from '@/lib/hooks'
+import { useOrganizations } from '@/lib/hooks'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { toast } from 'sonner'
+import { useDashboardAuth } from '@/lib/dashboard-auth-context'
 
 const colorOptions = [
   { value: '#2563eb', name: 'Blue' },
@@ -22,7 +23,7 @@ const colorOptions = [
 
 export default function OrganizationsPage() {
   const { t } = useI18n()
-  const { profile, signOut, loading: authLoading } = useAuth()
+  const { user: authUser, profile, signOut } = useDashboardAuth()
   const {
     organizations,
     loading: orgsLoading,
@@ -30,7 +31,10 @@ export default function OrganizationsPage() {
     createOrganization,
     updateOrganization,
     deleteOrganization,
-  } = useOrganizations()
+  } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading: false,
+  })
 
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgRate, setNewOrgRate] = useState('')
@@ -72,7 +76,7 @@ export default function OrganizationsPage() {
     }
   }
 
-  if (authLoading || orgsLoading) {
+  if (orgsLoading) {
     return <LoadingSpinner />
   }
 

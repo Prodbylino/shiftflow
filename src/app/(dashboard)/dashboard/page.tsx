@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { LanguageSwitch } from '@/lib/i18n'
 import { MonthCalendar } from '@/components/calendar/MonthCalendar'
 import { UserMenu } from '@/components/calendar/UserMenu'
-import { useAuth, useOrganizations, useShifts } from '@/lib/hooks'
+import { useOrganizations, useShifts } from '@/lib/hooks'
 import { LoadingSpinner } from '@/components/ui/loading'
+import { useDashboardAuth } from '@/lib/dashboard-auth-context'
 
 // Type for the calendar component
 interface CalendarShift {
@@ -34,9 +35,15 @@ const formatDateString = (date: Date): string => {
 }
 
 export default function DashboardPage() {
-  const { user: authUser, profile, signOut, loading: authLoading } = useAuth()
-  const { organizations, loading: orgsLoading, refetch: refetchOrganizations } = useOrganizations()
-  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError, refetch: refetchShifts } = useShifts()
+  const { user: authUser, profile, signOut } = useDashboardAuth()
+  const { organizations, loading: orgsLoading, error: orgsError } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading: false,
+  })
+  const { shifts, createShift, updateShift, deleteShift, loading: shiftsLoading, error: shiftsError } = useShifts({
+    userId: authUser?.id ?? null,
+    authLoading: false,
+  })
 
   // Transform DB organizations to calendar component format
   const calendarOrganizations: CalendarOrganization[] = useMemo(() => {
@@ -111,7 +118,11 @@ export default function DashboardPage() {
   }
 
   // Show loading while fetching initial data
-  if (authLoading || orgsLoading || shiftsLoading) {
+  const showBlockingLoading =
+    (orgsLoading && organizations.length === 0) ||
+    (shiftsLoading && shifts.length === 0)
+
+  if (showBlockingLoading) {
     return <LoadingSpinner />
   }
 
@@ -147,9 +158,9 @@ export default function DashboardPage() {
       </header>
 
       {/* Error Display */}
-      {shiftsError && (
+      {(orgsError || shiftsError) && (
         <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
-          <p className="font-medium">Error: {shiftsError}</p>
+          <p className="font-medium">Error: {orgsError || shiftsError}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="mt-2 text-sm underline hover:no-underline"

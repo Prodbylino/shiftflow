@@ -11,8 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useI18n, LanguageSwitch } from '@/lib/i18n'
-import { useAuth, useAnalytics, useOrganizations, useShifts } from '@/lib/hooks'
+import { useAnalytics, useOrganizations, useShifts } from '@/lib/hooks'
 import { LoadingSpinner } from '@/components/ui/loading'
+import { useDashboardAuth } from '@/lib/dashboard-auth-context'
 
 interface OrgSummary {
   organization_id: string
@@ -24,9 +25,15 @@ interface OrgSummary {
 
 export default function AnalyticsPage() {
   const { t } = useI18n()
-  const { loading: authLoading } = useAuth()
-  const { organizations, loading: orgsLoading } = useOrganizations()
-  const { shifts, loading: shiftsLoading } = useShifts()
+  const { user: authUser } = useDashboardAuth()
+  const { organizations, loading: orgsLoading } = useOrganizations({
+    userId: authUser?.id ?? null,
+    authLoading: false,
+  })
+  const { shifts, loading: shiftsLoading } = useShifts({
+    userId: authUser?.id ?? null,
+    authLoading: false,
+  })
   const { getMonthlySummary, getFinancialYearSummary, loading: analyticsLoading } = useAnalytics()
 
   const [period, setPeriod] = useState('month')
@@ -252,7 +259,7 @@ export default function AnalyticsPage() {
 
   const maxHours = Math.max(...monthlyData.map(d => d.hours), 1)
 
-  if (authLoading || orgsLoading || shiftsLoading) {
+  if (orgsLoading || shiftsLoading) {
     return <LoadingSpinner />
   }
 
