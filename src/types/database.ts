@@ -14,6 +14,11 @@ export interface Database {
           id: string
           email: string
           full_name: string | null
+          phone_number: string | null
+          phone_verified: boolean
+          sms_notifications_enabled: boolean
+          notification_minutes_before: number
+          timezone: string
           created_at: string
           updated_at: string
         }
@@ -21,6 +26,11 @@ export interface Database {
           id: string
           email: string
           full_name?: string | null
+          phone_number?: string | null
+          phone_verified?: boolean
+          sms_notifications_enabled?: boolean
+          notification_minutes_before?: number
+          timezone?: string
           created_at?: string
           updated_at?: string
         }
@@ -28,6 +38,11 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string | null
+          phone_number?: string | null
+          phone_verified?: boolean
+          sms_notifications_enabled?: boolean
+          notification_minutes_before?: number
+          timezone?: string
           created_at?: string
           updated_at?: string
         }
@@ -143,6 +158,58 @@ export interface Database {
           created_at?: string
         }
       }
+      phone_verifications: {
+        Row: {
+          id: string
+          user_id: string
+          phone_number: string
+          otp_code: string
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          phone_number: string
+          otp_code: string
+          expires_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          phone_number?: string
+          otp_code?: string
+          expires_at?: string
+          created_at?: string
+        }
+      }
+      shift_notifications: {
+        Row: {
+          id: string
+          shift_id: string
+          user_id: string
+          sent_at: string
+          status: 'sent' | 'failed'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          shift_id: string
+          user_id: string
+          sent_at?: string
+          status?: 'sent' | 'failed'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          shift_id?: string
+          user_id?: string
+          sent_at?: string
+          status?: 'sent' | 'failed'
+          created_at?: string
+        }
+      }
       shift_suggestions: {
         Row: {
           id: string
@@ -215,6 +282,16 @@ export interface Database {
           total_hours: number
         }[]
       }
+      get_shifts_needing_sms: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          user_id: string
+          title: string
+          start_time: string
+          phone_number: string
+        }[]
+      }
     }
   }
 }
@@ -225,6 +302,8 @@ export type Organization = Database['public']['Tables']['organizations']['Row']
 export type Shift = Database['public']['Tables']['shifts']['Row']
 export type RecurrencePattern = Database['public']['Tables']['recurrence_patterns']['Row']
 export type ShiftSuggestion = Database['public']['Tables']['shift_suggestions']['Row']
+export type PhoneVerification = Database['public']['Tables']['phone_verifications']['Row']
+export type ShiftNotification = Database['public']['Tables']['shift_notifications']['Row']
 
 // Insert types
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
