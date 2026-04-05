@@ -87,11 +87,13 @@ export default function SettingsPage() {
 
   // Notification settings state
   const [smsEnabled, setSmsEnabled] = useState(profile?.sms_notifications_enabled ?? false)
+  const [voiceCallEnabled, setVoiceCallEnabled] = useState(profile?.voice_call_enabled ?? false)
   const [minutesBefore, setMinutesBefore] = useState(profile?.notification_minutes_before ?? 60)
   const [timezone, setTimezone] = useState(profile?.timezone ?? 'Australia/Sydney')
   useEffect(() => {
     if (profile) {
       setSmsEnabled(profile.sms_notifications_enabled ?? false)
+      setVoiceCallEnabled(profile.voice_call_enabled ?? false)
       setMinutesBefore(profile.notification_minutes_before ?? 60)
       setTimezone(profile.timezone ?? 'Australia/Sydney')
     }
@@ -153,6 +155,7 @@ export default function SettingsPage() {
     if (!user?.id) return
     const ok = await updateProfile(user.id, {
       sms_notifications_enabled: smsEnabled,
+      voice_call_enabled: voiceCallEnabled,
       notification_minutes_before: minutesBefore,
       timezone,
     })
@@ -279,19 +282,21 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* SMS Notifications Section */}
+        {/* SMS & Voice Notifications Section */}
         <section className={`bg-white rounded-2xl p-6 shadow-sm ${!isPhoneVerified ? 'opacity-60' : ''}`}>
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <h2 className="text-2xl font-semibold">SMS Reminders</h2>
-              <p className="text-gray-500 text-base mt-1">
-                {isPhoneVerified
-                  ? 'Get a text before each upcoming shift.'
-                  : 'Verify your phone number above to enable.'}
-              </p>
-            </div>
+          <h2 className="text-2xl font-semibold mb-1">Reminders</h2>
+          <p className="text-gray-500 text-base mb-5">
+            {isPhoneVerified
+              ? 'Choose how you want to be reminded before each shift.'
+              : 'Verify your phone number above to enable.'}
+          </p>
 
-            {/* Toggle */}
+          {/* SMS Toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-lg font-medium">SMS</p>
+              <p className="text-sm text-gray-500">Get a text message before your shift</p>
+            </div>
             <button
               onClick={() => isPhoneVerified && setSmsEnabled(!smsEnabled)}
               disabled={!isPhoneVerified}
@@ -304,6 +309,29 @@ export default function SettingsPage() {
               <span
                 className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
                   smsEnabled && isPhoneVerified ? 'translate-x-7' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Voice Call Toggle */}
+          <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-100">
+            <div>
+              <p className="text-lg font-medium">Voice Call</p>
+              <p className="text-sm text-gray-500">Get a phone call before your shift</p>
+            </div>
+            <button
+              onClick={() => isPhoneVerified && setVoiceCallEnabled(!voiceCallEnabled)}
+              disabled={!isPhoneVerified}
+              className={`relative w-14 h-7 rounded-full transition-colors focus:outline-none ${
+                voiceCallEnabled && isPhoneVerified ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+              aria-checked={voiceCallEnabled}
+              role="switch"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                  voiceCallEnabled && isPhoneVerified ? 'translate-x-7' : 'translate-x-0'
                 }`}
               />
             </button>

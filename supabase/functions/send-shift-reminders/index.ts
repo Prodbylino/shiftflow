@@ -1,5 +1,5 @@
 // Supabase Edge Function: send-shift-reminders
-// Runs every minute via pg_cron. Queries upcoming shifts and sends SMS via AWS SNS.
+// Runs every minute via pg_cron. Queries upcoming shifts and sends SMS or voice call reminders.
 // Deno runtime — imports from esm.sh
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -34,39 +34,99 @@ async function sendSMS(phoneNumber: string, message: string): Promise<void> {
   }
 }
 
+async function sendVoiceCall(phoneNumber: string, message: string): Promise<void> {
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
+  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')
+  const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER')
+
+  if (!accountSid || !authToken || !fromNumber) {
+    throw new Error('Twilio credentials are not configured')
+  }
+
+  const twiml = `<Response><Say voice="Polly.Olivia" language="en-AU">${message}</Say></Response>`
+
+  const body = new URLSearchParams({
+    To: phoneNumber,
+    From: fromNumber,
+    Twiml: twiml,
+  })
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      },
+      body: body.toString(),
+    }
+  )
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`Twilio Voice error ${response.status}: ${text}`)
+  }
+}
+
 Deno.serve(async (_req) => {
   try {
-    const { data: shifts, error } = await supabase.rpc('get_shifts_needing_sms')
+    const results: { shift_id: string; type: string; status: string }[] = []
 
-    if (error) {
-      console.error('Failed to query shifts:', error)
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    // --- SMS reminders ---
+    const { data: smsShifts, error: smsError } = await supabase.rpc('get_shifts_needing_sms')
+
+    if (smsError) {
+      console.error('Failed to query SMS shifts:', smsError)
+    } else {
+      for (const shift of smsShifts ?? []) {
+        let status = 'sent'
+        try {
+          const message = `Reminder: Your shift "${shift.title}" starts at ${shift.start_time}. Have a great shift!`
+          await sendSMS(shift.phone_number, message)
+        } catch (err) {
+          console.error(`Failed to send SMS for shift ${shift.id}:`, err)
+          status = 'failed'
+        }
+
+        const { error: insertErr } = await supabase
+          .from('shift_notifications')
+          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'sms' })
+
+        if (insertErr) {
+          console.warn(`Insert SMS notification warning for shift ${shift.id}:`, insertErr.message)
+        }
+
+        results.push({ shift_id: shift.id, type: 'sms', status })
+      }
     }
 
-    const results: { shift_id: string; status: string }[] = []
+    // --- Voice call reminders ---
+    const { data: callShifts, error: callError } = await supabase.rpc('get_shifts_needing_voice_call')
 
-    for (const shift of shifts ?? []) {
-      let status = 'sent'
+    if (callError) {
+      console.error('Failed to query voice call shifts:', callError)
+    } else {
+      for (const shift of callShifts ?? []) {
+        let status = 'sent'
+        try {
+          const message = `This is a reminder from ShiftFlow. Your shift ${shift.title} starts at ${shift.start_time}. Have a great shift!`
+          await sendVoiceCall(shift.phone_number, message)
+        } catch (err) {
+          console.error(`Failed to send voice call for shift ${shift.id}:`, err)
+          status = 'failed'
+        }
 
-      try {
-        const message = `Reminder: Your shift "${shift.title}" starts at ${shift.start_time}. Have a great shift!`
-        await sendSMS(shift.phone_number, message)
-      } catch (err) {
-        console.error(`Failed to send SMS for shift ${shift.id}:`, err)
-        status = 'failed'
+        const { error: insertErr } = await supabase
+          .from('shift_notifications')
+          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'call' })
+
+        if (insertErr) {
+          console.warn(`Insert call notification warning for shift ${shift.id}:`, insertErr.message)
+        }
+
+        results.push({ shift_id: shift.id, type: 'call', status })
       }
-
-      // Record notification (success or failure) — unique index prevents duplicates
-      const { error: insertErr } = await supabase
-        .from('shift_notifications')
-        .insert({ shift_id: shift.id, user_id: shift.user_id, status })
-
-      if (insertErr) {
-        // Could be a duplicate (race condition) — safe to ignore
-        console.warn(`Insert notification warning for shift ${shift.id}:`, insertErr.message)
-      }
-
-      results.push({ shift_id: shift.id, status })
     }
 
     return new Response(

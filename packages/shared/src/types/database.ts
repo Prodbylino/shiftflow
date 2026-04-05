@@ -17,6 +17,7 @@ export interface Database {
           phone_number: string | null
           phone_verified: boolean
           sms_notifications_enabled: boolean
+          voice_call_enabled: boolean
           notification_minutes_before: number
           timezone: string
           created_at: string
@@ -29,6 +30,7 @@ export interface Database {
           phone_number?: string | null
           phone_verified?: boolean
           sms_notifications_enabled?: boolean
+          voice_call_enabled?: boolean
           notification_minutes_before?: number
           timezone?: string
           created_at?: string
@@ -41,6 +43,7 @@ export interface Database {
           phone_number?: string | null
           phone_verified?: boolean
           sms_notifications_enabled?: boolean
+          voice_call_enabled?: boolean
           notification_minutes_before?: number
           timezone?: string
           created_at?: string
@@ -191,6 +194,7 @@ export interface Database {
           user_id: string
           sent_at: string
           status: 'sent' | 'failed'
+          notification_type: 'sms' | 'call'
           created_at: string
         }
         Insert: {
@@ -199,6 +203,7 @@ export interface Database {
           user_id: string
           sent_at?: string
           status?: 'sent' | 'failed'
+          notification_type?: 'sms' | 'call'
           created_at?: string
         }
         Update: {
@@ -207,6 +212,7 @@ export interface Database {
           user_id?: string
           sent_at?: string
           status?: 'sent' | 'failed'
+          notification_type?: 'sms' | 'call'
           created_at?: string
         }
       }

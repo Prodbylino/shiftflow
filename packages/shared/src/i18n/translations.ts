@@ -1,17 +1,15 @@
-'use client'
+export type Language = 'en' | 'zh'
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
-
-type Language = 'en' | 'zh'
-
-interface Translations {
-  [key: string]: {
-    en: string
-    zh: string
-  }
+export interface TranslationEntry {
+  en: string
+  zh: string
 }
 
-const translations: Translations = {
+export interface Translations {
+  [key: string]: TranslationEntry
+}
+
+export const translations: Translations = {
   // Navigation
   'nav.signIn': { en: 'Sign In', zh: '登录' },
   'nav.getStarted': { en: 'Get Started', zh: '开始使用' },
@@ -117,58 +115,11 @@ const translations: Translations = {
   'auth.loginNow': { en: 'Log in now', zh: '立即登录' },
 }
 
-interface I18nContextType {
-  lang: Language
-  setLang: (lang: Language) => void
-  t: (key: string) => string
-}
-
-const I18nContext = createContext<I18nContextType | undefined>(undefined)
-
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Language>('en')
-
-  const t = useCallback((key: string): string => {
-    const translation = translations[key]
-    if (!translation) {
-      console.warn(`Missing translation for key: ${key}`)
-      return key
-    }
-    return translation[lang]
-  }, [lang])
-
-  return (
-    <I18nContext.Provider value={{ lang, setLang, t }}>
-      {children}
-    </I18nContext.Provider>
-  )
-}
-
-export function useI18n() {
-  const context = useContext(I18nContext)
-  if (!context) {
-    throw new Error('useI18n must be used within an I18nProvider')
+export function translate(key: string, lang: Language): string {
+  const entry = translations[key]
+  if (!entry) {
+    console.warn(`Missing translation for key: ${key}`)
+    return key
   }
-  return context
-}
-
-export function LanguageSwitch() {
-  const { lang, setLang } = useI18n()
-
-  return (
-    <div className="lang-switch">
-      <button
-        className={lang === 'en' ? 'active' : ''}
-        onClick={() => setLang('en')}
-      >
-        EN
-      </button>
-      <button
-        className={lang === 'zh' ? 'active' : ''}
-        onClick={() => setLang('zh')}
-      >
-        中
-      </button>
-    </div>
-  )
+  return entry[lang]
 }
