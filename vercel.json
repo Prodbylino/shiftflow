@@ -1,6 +1,5 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "pnpm --filter @shiftflow/web build",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "pnpm install"
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".next"
 }
