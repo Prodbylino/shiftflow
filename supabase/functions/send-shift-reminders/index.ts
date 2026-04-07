@@ -85,7 +85,7 @@ async function sendVoiceCall(phoneNumber: string, message: string, voice: string
     throw new Error('Twilio credentials are not configured')
   }
 
-  const twiml = `<Response><Say voice="${voice}">${message}</Say></Response>`
+  const twiml = `<Response><Say voice="${voice}"><prosody rate="110%">${message}</prosody></Say></Response>`
 
   const body = new URLSearchParams({
     To: phoneNumber,
