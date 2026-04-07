@@ -70,3 +70,6 @@ skills-lock.json
 
 # Supabase temp
 supabase/.temp/
+
+# Obsidian vault
+Shift_Planner/

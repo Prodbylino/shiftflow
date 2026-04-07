@@ -20,6 +20,7 @@ export interface Database {
           voice_call_enabled: boolean
           notification_minutes_before: number
           timezone: string
+          preferred_language: string
           created_at: string
           updated_at: string
         }
@@ -33,6 +34,7 @@ export interface Database {
           voice_call_enabled?: boolean
           notification_minutes_before?: number
           timezone?: string
+          preferred_language?: string
           created_at?: string
           updated_at?: string
         }
@@ -46,6 +48,7 @@ export interface Database {
           voice_call_enabled?: boolean
           notification_minutes_before?: number
           timezone?: string
+          preferred_language?: string
           created_at?: string
           updated_at?: string
         }

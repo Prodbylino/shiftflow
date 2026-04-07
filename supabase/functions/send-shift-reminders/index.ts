@@ -34,7 +34,49 @@ async function sendSMS(phoneNumber: string, message: string): Promise<void> {
   }
 }
 
-async function sendVoiceCall(phoneNumber: string, message: string): Promise<void> {
+function formatTime(timeStr: string): string {
+  const [hoursStr, minutesStr] = timeStr.split(':')
+  const hours = parseInt(hoursStr, 10)
+  const minutes = parseInt(minutesStr, 10)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours % 12 || 12
+  return minutes === 0 ? `${displayHours} ${period}` : `${displayHours}:${minutesStr} ${period}`
+}
+
+function formatTimeChinese(timeStr: string): string {
+  const [hoursStr, minutesStr] = timeStr.split(':')
+  const hours = parseInt(hoursStr, 10)
+  const minutes = parseInt(minutesStr, 10)
+  const period = hours < 6 ? '凌晨' : hours < 12 ? '上午' : hours < 13 ? '中午' : hours < 18 ? '下午' : '晚上'
+  const displayHours = hours % 12 || 12
+  return minutes === 0 ? `${period}${displayHours}点` : `${period}${displayHours}点${minutes}分`
+}
+
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+function buildSmsMessage(title: string, startTime: string, lang: string): string {
+  if (lang === 'zh') {
+    return `提醒：您在${title}的班次将于${formatTimeChinese(startTime)}开始。工作愉快！`
+  }
+  return `Reminder: Your shift "${capitalize(title)}" starts at ${formatTime(startTime)}. Have a great shift!`
+}
+
+function buildCallMessage(title: string, startTime: string, lang: string): { message: string; voice: string } {
+  if (lang === 'zh') {
+    return {
+      message: `您好，这是来自ShiftFlow的班次提醒。您在${title}的班次将于${formatTimeChinese(startTime)}开始，请准时出发，工作愉快！`,
+      voice: 'Polly.Zhiyu',
+    }
+  }
+  return {
+    message: `This is a reminder from ShiftFlow. Your shift at ${capitalize(title)} starts at ${formatTime(startTime)}. Have a great shift!`,
+    voice: 'Polly.Nicole',
+  }
+}
+
+async function sendVoiceCall(phoneNumber: string, message: string, voice: string): Promise<void> {
   const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
   const authToken = Deno.env.get('TWILIO_AUTH_TOKEN')
   const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER')
@@ -43,7 +85,7 @@ async function sendVoiceCall(phoneNumber: string, message: string): Promise<void
     throw new Error('Twilio credentials are not configured')
   }
 
-  const twiml = `<Response><Say voice="Polly.Olivia" language="en-AU">${message}</Say></Response>`
+  const twiml = `<Response><Say voice="${voice}">${message}</Say></Response>`
 
   const body = new URLSearchParams({
     To: phoneNumber,
@@ -82,7 +124,7 @@ Deno.serve(async (_req) => {
       for (const shift of smsShifts ?? []) {
         let status = 'sent'
         try {
-          const message = `Reminder: Your shift "${shift.title}" starts at ${shift.start_time}. Have a great shift!`
+          const message = buildSmsMessage(shift.title, shift.start_time, shift.preferred_language ?? 'en')
           await sendSMS(shift.phone_number, message)
         } catch (err) {
           console.error(`Failed to send SMS for shift ${shift.id}:`, err)
@@ -110,8 +152,8 @@ Deno.serve(async (_req) => {
       for (const shift of callShifts ?? []) {
         let status = 'sent'
         try {
-          const message = `This is a reminder from ShiftFlow. Your shift ${shift.title} starts at ${shift.start_time}. Have a great shift!`
-          await sendVoiceCall(shift.phone_number, message)
+          const { message, voice } = buildCallMessage(shift.title, shift.start_time, shift.preferred_language ?? 'en')
+          await sendVoiceCall(shift.phone_number, message, voice)
         } catch (err) {
           console.error(`Failed to send voice call for shift ${shift.id}:`, err)
           status = 'failed'

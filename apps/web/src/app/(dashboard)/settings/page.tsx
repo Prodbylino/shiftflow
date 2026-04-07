@@ -90,12 +90,14 @@ export default function SettingsPage() {
   const [voiceCallEnabled, setVoiceCallEnabled] = useState(profile?.voice_call_enabled ?? false)
   const [minutesBefore, setMinutesBefore] = useState(profile?.notification_minutes_before ?? 60)
   const [timezone, setTimezone] = useState(profile?.timezone ?? 'Australia/Sydney')
+  const [preferredLanguage, setPreferredLanguage] = useState(profile?.preferred_language ?? 'en')
   useEffect(() => {
     if (profile) {
       setSmsEnabled(profile.sms_notifications_enabled ?? false)
       setVoiceCallEnabled(profile.voice_call_enabled ?? false)
       setMinutesBefore(profile.notification_minutes_before ?? 60)
       setTimezone(profile.timezone ?? 'Australia/Sydney')
+      setPreferredLanguage(profile.preferred_language ?? 'en')
     }
   }, [profile])
 
@@ -158,6 +160,7 @@ export default function SettingsPage() {
       voice_call_enabled: voiceCallEnabled,
       notification_minutes_before: minutesBefore,
       timezone,
+      preferred_language: preferredLanguage,
     })
     if (ok) toast.success('Notification settings saved')
     else toast.error('Failed to save settings')
@@ -372,6 +375,26 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <Label className="text-lg mb-2 block">Reminder language / 提醒语言</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[{ value: 'en', label: 'English' }, { value: 'zh', label: '中文' }].map((lang) => (
+                  <button
+                    key={lang.value}
+                    onClick={() => isPhoneVerified && setPreferredLanguage(lang.value)}
+                    disabled={!isPhoneVerified}
+                    className={`h-12 rounded-xl border-2 text-base font-medium transition-colors ${
+                      preferredLanguage === lang.value
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <Button
