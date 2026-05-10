@@ -34,7 +34,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@supabase/supabase-js':
-        specifier: ^2.45.0
+        specifier: ^2.89.0
         version: 2.101.1
       expo:
         specifier: ~54.0.33
@@ -209,6 +209,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.101.1
+        version: 2.101.1
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -216,6 +219,12 @@ importers:
         specifier: ^1.11.19
         version: 1.11.20
     devDependencies:
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.1.17
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
       typescript:
         specifier: ^5
         version: 5.9.3

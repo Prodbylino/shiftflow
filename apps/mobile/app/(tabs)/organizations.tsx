@@ -1,6 +1,10 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback } from 'react';
+
+import { useAuth, useOrganizations } from '@shiftflow/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -10,27 +14,31 @@ import { Type } from '@/components/ui/Type';
 import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
-const orgs = [
-  { id: '1', name: 'Coffee Bean', rate: 26.0, category: 'Hospitality', color: '#F59E0B' },
-  { id: '2', name: 'Library', rate: 32.5, category: 'Casual', color: '#5E6AD2' },
-  { id: '3', name: 'Tutoring', rate: 45.0, category: 'Self-employed', color: '#10B981' },
-];
-
 export default function OrganizationsScreen() {
   const theme = useTheme();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { organizations, loading, refetch } = useOrganizations(user?.id ?? null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
-      <Screen>
+      <Screen onRefresh={refetch}>
         <Stack gap="3xl">
           <Stack gap="xs">
             <Type variant="display">Workplaces</Type>
             <Type variant="caption" tone="muted">
-              {orgs.length} active
+              {loading ? 'Loading…' : `${organizations.length} active`}
             </Type>
           </Stack>
 
           <Pressable
+            onPress={() => router.push('/add-workplace')}
             style={({ pressed }) => [
               styles.addButton,
               {
@@ -43,22 +51,40 @@ export default function OrganizationsScreen() {
             <Type variant="bodyMedium">Add workplace</Type>
           </Pressable>
 
-          <Stack gap="sm">
-            {orgs.map((org) => (
-              <Card key={org.id}>
-                <Row gap="lg">
-                  <View style={[styles.colorDot, { backgroundColor: org.color }]} />
-                  <Stack gap="xs" style={{ flex: 1 }}>
-                    <Type variant="h3">{org.name}</Type>
-                    <Type variant="caption" tone="muted">
-                      ${org.rate.toFixed(2)}/h · {org.category}
-                    </Type>
-                  </Stack>
-                  <Feather name="chevron-right" size={18} color={theme.textSubtle} />
-                </Row>
-              </Card>
-            ))}
-          </Stack>
+          {loading ? (
+            <Card>
+              <ActivityIndicator color={theme.textMuted} />
+            </Card>
+          ) : organizations.length === 0 ? (
+            <Card>
+              <Stack gap="xs" style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
+                <Feather name="briefcase" size={28} color={theme.textSubtle} />
+                <Type variant="bodyMedium" tone="muted">
+                  No workplaces yet
+                </Type>
+                <Type variant="caption" tone="subtle">
+                  Add one to start logging shifts
+                </Type>
+              </Stack>
+            </Card>
+          ) : (
+            <Stack gap="sm">
+              {organizations.map((org) => (
+                <Card key={org.id}>
+                  <Row gap="lg">
+                    <View style={[styles.colorDot, { backgroundColor: org.color }]} />
+                    <Stack gap="xs" style={{ flex: 1 }}>
+                      <Type variant="h3">{org.name}</Type>
+                      <Type variant="caption" tone="muted">
+                        ${Number(org.hourly_rate).toFixed(2)}/h
+                      </Type>
+                    </Stack>
+                    <Feather name="chevron-right" size={18} color={theme.textSubtle} />
+                  </Row>
+                </Card>
+              ))}
+            </Stack>
+          )}
         </Stack>
       </Screen>
     </SafeAreaView>

@@ -10,10 +10,16 @@
     "./i18n": "./src/i18n/translations.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19"
   },
   "devDependencies": {
+    "@types/react": "^19.1.0",
+    "react": "^19.1.0",
     "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
   }
 }

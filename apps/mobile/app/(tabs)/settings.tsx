@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
+import { useAuth } from '@shiftflow/shared';
+
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
 import { Screen } from '@/components/ui/Screen';
@@ -13,6 +15,7 @@ import { useTheme } from '@/components/useTheme';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const { user, signOut } = useAuth();
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
 
@@ -30,11 +33,17 @@ export default function SettingsScreen() {
               <SettingRow
                 icon="user"
                 label="Profile"
-                value="zzlunsw@outlook.com"
+                value={user?.email ?? '—'}
                 showChevron
                 isFirst
               />
-              <SettingRow icon="log-out" label="Sign out" tone="danger" isLast />
+              <SettingRow
+                icon="log-out"
+                label="Sign out"
+                tone="danger"
+                onPress={signOut}
+                isLast
+              />
             </Card>
           </Stack>
 
@@ -106,6 +115,7 @@ type SettingRowProps = {
   tone?: 'default' | 'danger';
   isFirst?: boolean;
   isLast?: boolean;
+  onPress?: () => void;
 };
 
 function SettingRow({
@@ -117,12 +127,13 @@ function SettingRow({
   tone = 'default',
   isFirst,
   isLast,
+  onPress,
 }: SettingRowProps) {
   const theme = useTheme();
   const labelColor = tone === 'danger' ? theme.danger : theme.text;
 
   return (
-    <Pressable style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
       <View
         style={[
           styles.settingRow,
