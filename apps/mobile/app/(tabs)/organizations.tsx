@@ -70,18 +70,25 @@ export default function OrganizationsScreen() {
           ) : (
             <Stack gap="sm">
               {organizations.map((org) => (
-                <Card key={org.id}>
-                  <Row gap="lg">
-                    <View style={[styles.colorDot, { backgroundColor: org.color }]} />
-                    <Stack gap="xs" style={{ flex: 1 }}>
-                      <Type variant="h3">{org.name}</Type>
-                      <Type variant="caption" tone="muted">
-                        ${Number(org.hourly_rate).toFixed(2)}/h
-                      </Type>
-                    </Stack>
-                    <Feather name="chevron-right" size={18} color={theme.textSubtle} />
-                  </Row>
-                </Card>
+                <Pressable
+                  key={org.id}
+                  onPress={() =>
+                    router.push({ pathname: '/workplace/[id]', params: { id: org.id } })
+                  }
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                  <Card>
+                    <Row gap="lg">
+                      <View style={[styles.colorDot, { backgroundColor: org.color }]} />
+                      <Stack gap="xs" style={{ flex: 1 }}>
+                        <Type variant="h3">{org.name}</Type>
+                        <Type variant="caption" tone="muted">
+                          ${Number(org.hourly_rate).toFixed(2)}/h
+                        </Type>
+                      </Stack>
+                      <Feather name="chevron-right" size={18} color={theme.textSubtle} />
+                    </Row>
+                  </Card>
+                </Pressable>
               ))}
             </Stack>
           )}

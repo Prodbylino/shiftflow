@@ -67,6 +67,8 @@ function AuthGate() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="add-workplace" options={{ presentation: 'modal' }} />
       <Stack.Screen name="add-shift" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="shift/[id]" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="workplace/[id]" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

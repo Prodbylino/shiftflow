@@ -178,7 +178,13 @@ export default function DashboardScreen() {
                   const hours = shiftHours(shift);
                   const earnings = Math.round(hours * (shift.organization?.hourly_rate ?? 0));
                   return (
-                    <Card key={shift.id} padded={false}>
+                    <Pressable
+                      key={shift.id}
+                      onPress={() =>
+                        router.push({ pathname: '/shift/[id]', params: { id: shift.id } })
+                      }
+                      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                    <Card padded={false}>
                       <View style={styles.shiftRow}>
                         <View
                           style={[
@@ -205,6 +211,7 @@ export default function DashboardScreen() {
                         </View>
                       </View>
                     </Card>
+                    </Pressable>
                   );
                 })}
               </Stack>

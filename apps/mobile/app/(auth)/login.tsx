@@ -70,9 +70,17 @@ export default function LoginScreen() {
 
           <Button label="Sign in" onPress={onSubmit} loading={submitting} />
 
+          <Link href="/(auth)/forgot-password" asChild>
+            <Pressable style={styles.centerLink}>
+              <Type variant="captionMedium" tone="muted">
+                Forgot password?
+              </Type>
+            </Pressable>
+          </Link>
+
           <Pressable style={styles.linkRow}>
             <Type variant="caption" tone="muted">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
             </Type>
             <Link href="/(auth)/signup" asChild>
               <Pressable>
@@ -97,6 +105,9 @@ const styles = StyleSheet.create({
   linkRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerLink: {
     alignItems: 'center',
   },
 });

@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
@@ -18,6 +18,13 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuth();
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign out?', 'You will need to sign in again to access your shifts.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    ]);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
@@ -41,7 +48,7 @@ export default function SettingsScreen() {
                 icon="log-out"
                 label="Sign out"
                 tone="danger"
-                onPress={signOut}
+                onPress={confirmSignOut}
                 isLast
               />
             </Card>

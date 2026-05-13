@@ -1,7 +1,8 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -23,62 +24,107 @@ import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-
 const dateOnly = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const timeOnly = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
-const defaultStart = () => {
+const parseDate = (iso: string) => new Date(iso + 'T00:00:00');
+const parseTime = (hms: string) => {
+  const [h = 0, m = 0] = hms.split(':').map(Number);
   const d = new Date();
-  d.setHours(9, 0, 0, 0);
+  d.setHours(h, m, 0, 0);
   return d;
 };
 
-const defaultEnd = () => {
-  const d = new Date();
-  d.setHours(17, 0, 0, 0);
-  return d;
-};
-
-export default function AddShiftScreen() {
+export default function ShiftDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id ?? null);
-  const { createShift } = useShifts({ userId: user?.id ?? null });
+  const { shifts, updateShift, deleteShift } = useShifts({ userId: user?.id ?? null });
+  const { organizations } = useOrganizations(user?.id ?? null);
+
+  const shift = shifts.find((s) => s.id === id);
 
   const [orgId, setOrgId] = useState<string | null>(null);
   const [date, setDate] = useState<Date>(new Date());
-  const [startTime, setStartTime] = useState<Date>(defaultStart);
-  const [endTime, setEndTime] = useState<Date>(defaultEnd);
+  const [startTime, setStartTime] = useState<Date>(new Date());
+  const [endTime, setEndTime] = useState<Date>(new Date());
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  const onSubmit = async () => {
+  useEffect(() => {
+    if (shift && !hydrated) {
+      setOrgId(shift.organization_id);
+      setDate(parseDate(shift.date));
+      setStartTime(parseTime(shift.start_time));
+      setEndTime(parseTime(shift.end_time));
+      setNotes(shift.notes ?? '');
+      setHydrated(true);
+    }
+  }, [shift, hydrated]);
+
+  if (!shift) {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Feather name="x" size={22} color={theme.text} />
+          </Pressable>
+          <Type variant="h3">Shift</Type>
+          <View style={{ width: 22 }} />
+        </View>
+        <View style={styles.emptyState}>
+          <Type variant="bodyMedium" tone="muted">
+            Shift not found
+          </Type>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const onSave = async () => {
     setError(null);
-
     if (!orgId) {
       setError('Pick a workplace');
       return;
     }
-
-    const org = organizations.find((o) => o.id === orgId);
     setSubmitting(true);
-    const result = await createShift({
+    const ok = await updateShift(shift.id, {
       organization_id: orgId,
-      title: org?.name ?? 'Shift',
       date: dateOnly(date),
       start_time: timeOnly(startTime),
       end_time: timeOnly(endTime),
       notes: notes.trim() || null,
     });
     setSubmitting(false);
-
-    if (result) {
+    if (ok) {
       router.back();
     } else {
-      setError('Could not save shift');
+      setError('Could not save changes');
     }
+  };
+
+  const onDelete = () => {
+    Alert.alert('Delete shift?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          const ok = await deleteShift(shift.id);
+          setDeleting(false);
+          if (ok) {
+            router.back();
+          } else {
+            setError('Could not delete shift');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -90,7 +136,7 @@ export default function AddShiftScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">New shift</Type>
+          <Type variant="h3">Edit shift</Type>
           <View style={{ width: 22 }} />
         </View>
 
@@ -103,56 +149,39 @@ export default function AddShiftScreen() {
               <Type variant="micro" tone="muted">
                 Workplace
               </Type>
-              {orgsLoading ? (
-                <Type variant="caption" tone="muted">
-                  Loading…
-                </Type>
-              ) : organizations.length === 0 ? (
-                <Pressable
-                  onPress={() => {
-                    router.back();
-                    setTimeout(() => router.push('/add-workplace'), 100);
-                  }}
-                  style={[styles.emptyOrgs, { borderColor: theme.border }]}>
-                  <Type variant="bodyMedium" tone="muted">
-                    Add a workplace first
-                  </Type>
-                </Pressable>
-              ) : (
-                <Stack gap="sm">
-                  {organizations.map((org) => {
-                    const selected = org.id === orgId;
-                    return (
-                      <Pressable
-                        key={org.id}
-                        onPress={() => setOrgId(org.id)}
-                        style={[
-                          styles.orgRow,
-                          {
-                            backgroundColor: theme.surface,
-                            borderColor: selected ? theme.text : theme.border,
-                          },
-                        ]}>
-                        <Row gap="md" style={{ flex: 1 }}>
-                          <View style={[styles.colorDot, { backgroundColor: org.color }]} />
-                          <Type variant="bodyMedium">{org.name}</Type>
-                        </Row>
-                        <Type variant="caption" tone="muted">
-                          ${Number(org.hourly_rate).toFixed(2)}/h
-                        </Type>
-                        {selected && (
-                          <Feather
-                            name="check"
-                            size={16}
-                            color={theme.text}
-                            style={{ marginLeft: spacing.sm }}
-                          />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </Stack>
-              )}
+              <Stack gap="sm">
+                {organizations.map((org) => {
+                  const selected = org.id === orgId;
+                  return (
+                    <Pressable
+                      key={org.id}
+                      onPress={() => setOrgId(org.id)}
+                      style={[
+                        styles.orgRow,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: selected ? theme.text : theme.border,
+                        },
+                      ]}>
+                      <Row gap="md" style={{ flex: 1 }}>
+                        <View style={[styles.colorDot, { backgroundColor: org.color }]} />
+                        <Type variant="bodyMedium">{org.name}</Type>
+                      </Row>
+                      <Type variant="caption" tone="muted">
+                        ${Number(org.hourly_rate).toFixed(2)}/h
+                      </Type>
+                      {selected && (
+                        <Feather
+                          name="check"
+                          size={16}
+                          color={theme.text}
+                          style={{ marginLeft: spacing.sm }}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </Stack>
             </Stack>
 
             <DateTimeField label="Date" value={date} onChange={setDate} mode="date" />
@@ -190,12 +219,16 @@ export default function AddShiftScreen() {
               </Type>
             ) : null}
 
-            <Button
-              label="Save shift"
-              onPress={onSubmit}
-              loading={submitting}
-              disabled={organizations.length === 0}
-            />
+            <Stack gap="md">
+              <Button label="Save changes" onPress={onSave} loading={submitting} />
+              <Button
+                label="Delete shift"
+                variant="ghost"
+                onPress={onDelete}
+                loading={deleting}
+                style={{ borderColor: theme.danger }}
+              />
+            </Stack>
           </Stack>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -231,11 +264,9 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  emptyOrgs: {
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
+  emptyState: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 });
