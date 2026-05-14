@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,6 +48,7 @@ export default function ShiftDetailScreen() {
 
   const [orgId, setOrgId] = useState<string | null>(null);
   const [date, setDate] = useState<Date>(new Date());
+  const [overnight, setOvernight] = useState(false);
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [endTime, setEndTime] = useState<Date>(new Date());
   const [notes, setNotes] = useState('');
@@ -59,6 +61,7 @@ export default function ShiftDetailScreen() {
     if (shift && !hydrated) {
       setOrgId(shift.organization_id);
       setDate(parseDate(shift.date));
+      setOvernight(!!shift.end_date && shift.end_date !== shift.date);
       setStartTime(parseTime(shift.start_time));
       setEndTime(parseTime(shift.end_time));
       setNotes(shift.notes ?? '');
@@ -91,10 +94,18 @@ export default function ShiftDetailScreen() {
       setError('Pick a workplace');
       return;
     }
+    const endDateValue = overnight
+      ? (() => {
+          const next = new Date(date);
+          next.setDate(next.getDate() + 1);
+          return dateOnly(next);
+        })()
+      : null;
     setSubmitting(true);
     const ok = await updateShift(shift.id, {
       organization_id: orgId,
       date: dateOnly(date),
+      end_date: endDateValue,
       start_time: timeOnly(startTime),
       end_time: timeOnly(endTime),
       notes: notes.trim() || null,
@@ -203,6 +214,20 @@ export default function ShiftDetailScreen() {
                   mode="time"
                 />
               </View>
+            </Row>
+
+            <Row justify="space-between" align="center">
+              <Stack gap="xs">
+                <Type variant="bodyMedium">Overnight</Type>
+                <Type variant="caption" tone="muted">
+                  Ends the following day
+                </Type>
+              </Stack>
+              <Switch
+                value={overnight}
+                onValueChange={setOvernight}
+                trackColor={{ false: theme.borderMuted, true: theme.brand }}
+              />
             </Row>
 
             <TextField

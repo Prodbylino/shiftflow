@@ -1,5 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,15 +40,23 @@ const defaultEnd = () => {
   return d;
 };
 
+const parseInitialDate = (raw: string | undefined): Date => {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return new Date();
+  const parsed = new Date(raw + 'T00:00:00');
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
 export default function AddShiftScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ date?: string }>();
   const { user } = useAuth();
   const { organizations, loading: orgsLoading } = useOrganizations(user?.id ?? null);
   const { createShift } = useShifts({ userId: user?.id ?? null });
 
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [date, setDate] = useState<Date>(new Date());
+  const [date, setDate] = useState<Date>(() => parseInitialDate(params.date));
+  const [overnight, setOvernight] = useState(false);
   const [startTime, setStartTime] = useState<Date>(defaultStart);
   const [endTime, setEndTime] = useState<Date>(defaultEnd);
   const [notes, setNotes] = useState('');
@@ -63,11 +72,19 @@ export default function AddShiftScreen() {
     }
 
     const org = organizations.find((o) => o.id === orgId);
+    const endDateValue = overnight
+      ? (() => {
+          const next = new Date(date);
+          next.setDate(next.getDate() + 1);
+          return dateOnly(next);
+        })()
+      : null;
     setSubmitting(true);
     const result = await createShift({
       organization_id: orgId,
       title: org?.name ?? 'Shift',
       date: dateOnly(date),
+      end_date: endDateValue,
       start_time: timeOnly(startTime),
       end_time: timeOnly(endTime),
       notes: notes.trim() || null,
@@ -174,6 +191,20 @@ export default function AddShiftScreen() {
                   mode="time"
                 />
               </View>
+            </Row>
+
+            <Row justify="space-between" align="center">
+              <Stack gap="xs">
+                <Type variant="bodyMedium">Overnight</Type>
+                <Type variant="caption" tone="muted">
+                  Ends the following day
+                </Type>
+              </Stack>
+              <Switch
+                value={overnight}
+                onValueChange={setOvernight}
+                trackColor={{ false: theme.borderMuted, true: theme.brand }}
+              />
             </Row>
 
             <TextField

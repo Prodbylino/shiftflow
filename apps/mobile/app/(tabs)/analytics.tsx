@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useMemo } from 'react';
 
-import { ShiftWithOrganization, useAuth, useShifts } from '@shiftflow/shared';
+import { useAuth, useShifts } from '@shiftflow/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -13,17 +13,7 @@ import { Stack } from '@/components/ui/Stack';
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
-
-const HMS_TO_HOURS = (hms: string): number => {
-  const [h = 0, m = 0] = hms.split(':').map(Number);
-  return h + m / 60;
-};
-
-const shiftHours = (shift: ShiftWithOrganization): number => {
-  let hours = HMS_TO_HOURS(shift.end_time) - HMS_TO_HOURS(shift.start_time);
-  if (hours < 0) hours += 24;
-  return hours;
-};
+import { shiftDurationHours, shiftEarnings } from '@/lib/shift';
 
 const monthRange = (offsetMonths: number) => {
   const now = new Date();
@@ -61,8 +51,8 @@ export default function AnalyticsScreen() {
 
     for (const s of shifts) {
       if (s.date > todayIso) continue;
-      const h = shiftHours(s);
-      const earn = h * (s.organization?.hourly_rate ?? 0);
+      const h = shiftDurationHours(s);
+      const earn = shiftEarnings(s);
 
       if (s.date >= thisMonth.start && s.date <= thisMonth.end) {
         thisMonthHours += h;
