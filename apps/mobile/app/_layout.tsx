@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { SupabaseProvider, useAuth } from '@shiftflow/shared';
@@ -17,9 +18,11 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <SupabaseProvider client={supabase}>
-      <RootLayoutNav />
-    </SupabaseProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SupabaseProvider client={supabase}>
+        <RootLayoutNav />
+      </SupabaseProvider>
+    </GestureHandlerRootView>
   );
 }
 
