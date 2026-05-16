@@ -1,9 +1,19 @@
 import Feather from '@expo/vector-icons/Feather';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import {
+  ActionSheetIOS,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useCallback } from 'react';
 
-import { useAuth } from '@shiftflow/shared';
+import { useAuth, useProfile } from '@shiftflow/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -13,11 +23,39 @@ import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
+const REMINDER_OPTIONS: { label: string; value: number }[] = [
+  { label: '5 minutes before', value: 5 },
+  { label: '15 minutes before', value: 15 },
+  { label: '30 minutes before', value: 30 },
+  { label: '1 hour before', value: 60 },
+  { label: '2 hours before', value: 120 },
+];
+
+const LANGUAGE_OPTIONS: { label: string; value: string }[] = [
+  { label: 'English', value: 'en' },
+  { label: '中文', value: 'zh' },
+];
+
+const formatReminder = (minutes: number): string => {
+  const opt = REMINDER_OPTIONS.find((o) => o.value === minutes);
+  if (opt) return opt.label;
+  return `${minutes} minutes before`;
+};
+
+const formatLanguage = (code: string): string =>
+  LANGUAGE_OPTIONS.find((o) => o.value === code)?.label ?? code;
+
 export default function SettingsScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const { user, signOut } = useAuth();
-  const [smsEnabled, setSmsEnabled] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const { profile, loading, refetch, updateProfile } = useProfile(user?.id ?? null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   const confirmSignOut = () => {
     Alert.alert('Sign out?', 'You will need to sign in again to access your shifts.', [
@@ -26,9 +64,79 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const phoneRequired = (action: string): boolean => {
+    if (profile?.phone_number) return true;
+    Alert.alert(
+      'Phone number required',
+      `Add a phone number in Profile before enabling ${action}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open Profile', onPress: () => router.push('/profile') },
+      ],
+    );
+    return false;
+  };
+
+  const toggleSms = async (value: boolean) => {
+    if (value && !phoneRequired('SMS reminders')) return;
+    await updateProfile({ sms_notifications_enabled: value });
+  };
+
+  const toggleVoice = async (value: boolean) => {
+    if (value && !phoneRequired('voice call reminders')) return;
+    await updateProfile({ voice_call_enabled: value });
+  };
+
+  const pickReminderTiming = () => {
+    if (Platform.OS !== 'ios') return;
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'Reminder timing',
+        options: [...REMINDER_OPTIONS.map((o) => o.label), 'Cancel'],
+        cancelButtonIndex: REMINDER_OPTIONS.length,
+        userInterfaceStyle: theme.scheme,
+      },
+      (idx) => {
+        if (idx >= 0 && idx < REMINDER_OPTIONS.length) {
+          updateProfile({ notification_minutes_before: REMINDER_OPTIONS[idx].value });
+        }
+      },
+    );
+  };
+
+  const pickLanguage = () => {
+    if (Platform.OS !== 'ios') return;
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'Language',
+        options: [...LANGUAGE_OPTIONS.map((o) => o.label), 'Cancel'],
+        cancelButtonIndex: LANGUAGE_OPTIONS.length,
+        userInterfaceStyle: theme.scheme,
+      },
+      (idx) => {
+        if (idx >= 0 && idx < LANGUAGE_OPTIONS.length) {
+          updateProfile({ preferred_language: LANGUAGE_OPTIONS[idx].value });
+        }
+      },
+    );
+  };
+
+  if (loading && !profile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
+        <View style={styles.loading}>
+          <ActivityIndicator color={theme.textMuted} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayName =
+    profile?.full_name?.trim() || profile?.email?.split('@')[0] || 'Profile';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
-      <Screen>
+      <Screen onRefresh={refetch}>
         <Stack gap="3xl">
           <Type variant="display">Settings</Type>
 
@@ -39,9 +147,10 @@ export default function SettingsScreen() {
             <Card padded={false}>
               <SettingRow
                 icon="user"
-                label="Profile"
-                value={user?.email ?? '—'}
+                label={displayName}
+                value={user?.email ?? ''}
                 showChevron
+                onPress={() => router.push('/profile')}
                 isFirst
               />
               <SettingRow
@@ -65,8 +174,8 @@ export default function SettingsScreen() {
                 isFirst
                 rightElement={
                   <Switch
-                    value={smsEnabled}
-                    onValueChange={setSmsEnabled}
+                    value={profile?.sms_notifications_enabled ?? false}
+                    onValueChange={toggleSms}
                     trackColor={{ false: theme.borderMuted, true: theme.brand }}
                   />
                 }
@@ -76,8 +185,8 @@ export default function SettingsScreen() {
                 label="Voice calls"
                 rightElement={
                   <Switch
-                    value={voiceEnabled}
-                    onValueChange={setVoiceEnabled}
+                    value={profile?.voice_call_enabled ?? false}
+                    onValueChange={toggleVoice}
                     trackColor={{ false: theme.borderMuted, true: theme.brand }}
                   />
                 }
@@ -85,8 +194,9 @@ export default function SettingsScreen() {
               <SettingRow
                 icon="clock"
                 label="Reminder timing"
-                value="30 min before"
+                value={formatReminder(profile?.notification_minutes_before ?? 30)}
                 showChevron
+                onPress={pickReminderTiming}
                 isLast
               />
             </Card>
@@ -97,8 +207,15 @@ export default function SettingsScreen() {
               Preferences
             </Type>
             <Card padded={false}>
-              <SettingRow icon="globe" label="Language" value="English" showChevron isFirst />
-              <SettingRow icon="moon" label="Theme" value="System" showChevron isLast />
+              <SettingRow
+                icon="globe"
+                label="Language"
+                value={formatLanguage(profile?.preferred_language ?? 'en')}
+                showChevron
+                onPress={pickLanguage}
+                isFirst
+                isLast
+              />
             </Card>
           </Stack>
 
@@ -132,7 +249,6 @@ function SettingRow({
   showChevron,
   rightElement,
   tone = 'default',
-  isFirst,
   isLast,
   onPress,
 }: SettingRowProps) {
@@ -140,7 +256,7 @@ function SettingRow({
   const labelColor = tone === 'danger' ? theme.danger : theme.text;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [{ opacity: pressed && onPress ? 0.6 : 1 }]}>
       <View
         style={[
           styles.settingRow,
@@ -153,16 +269,23 @@ function SettingRow({
           <View style={[styles.iconWrap, { backgroundColor: theme.surfaceMuted }]}>
             <Feather name={icon} size={16} color={tone === 'danger' ? theme.danger : theme.text} />
           </View>
-          <Type variant="bodyMedium" style={{ color: labelColor }}>
-            {label}
-          </Type>
+          <Stack gap="xs" style={{ flex: 1 }}>
+            <Type variant="bodyMedium" style={{ color: labelColor }}>
+              {label}
+            </Type>
+            {value && rightElement === undefined && !showChevron ? (
+              <Type variant="caption" tone="muted">
+                {value}
+              </Type>
+            ) : null}
+          </Stack>
         </Row>
         <Row gap="sm">
-          {value && (
-            <Type variant="caption" tone="muted">
+          {value && (showChevron || rightElement !== undefined) ? (
+            <Type variant="caption" tone="muted" numberOfLines={1}>
               {value}
             </Type>
-          )}
+          ) : null}
           {rightElement}
           {showChevron && <Feather name="chevron-right" size={16} color={theme.textSubtle} />}
         </Row>
@@ -184,6 +307,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loading: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
