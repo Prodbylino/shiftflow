@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useMemo, useState } from 'react';
 
-import { useAuth, useShifts } from '@shiftflow/shared';
+import { useAuth, useOrganizations, useShifts } from '@shiftflow/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -33,12 +33,22 @@ export default function DashboardScreen() {
   const [selected, setSelected] = useState<Date>(today);
 
   const { shifts, loading, refetch, deleteShift } = useShifts({ userId: user?.id ?? null });
+  const { organizations } = useOrganizations(user?.id ?? null);
+  const hasWorkplaces = organizations.length > 0;
 
   useFocusEffect(
     useCallback(() => {
       refetch();
     }, [refetch]),
   );
+
+  const goAddShift = () => {
+    if (!hasWorkplaces) {
+      router.push('/add-workplace');
+      return;
+    }
+    router.push({ pathname: '/add-shift', params: { date: selectedKey } });
+  };
 
   const selectedKey = dateKey(selected);
   const dayShifts = useMemo(
@@ -98,12 +108,16 @@ export default function DashboardScreen() {
             ) : dayShifts.length === 0 ? (
               <Card>
                 <Stack gap="xs" style={{ alignItems: 'center', paddingVertical: spacing.lg }}>
-                  <Feather name="calendar" size={28} color={theme.textSubtle} />
+                  <Feather
+                    name={hasWorkplaces ? 'calendar' : 'briefcase'}
+                    size={28}
+                    color={theme.textSubtle}
+                  />
                   <Type variant="bodyMedium" tone="muted">
-                    No shifts on this day
+                    {hasWorkplaces ? 'No shifts on this day' : 'No workplaces yet'}
                   </Type>
                   <Type variant="caption" tone="subtle">
-                    Tap + to add one
+                    {hasWorkplaces ? 'Tap + to add one' : 'Tap + to add your first workplace'}
                   </Type>
                 </Stack>
               </Card>
@@ -163,9 +177,7 @@ export default function DashboardScreen() {
       </Screen>
 
       <Pressable
-        onPress={() =>
-          router.push({ pathname: '/add-shift', params: { date: selectedKey } })
-        }
+        onPress={goAddShift}
         style={({ pressed }) => [
           styles.fab,
           { backgroundColor: theme.text, opacity: pressed ? 0.85 : 1 },
