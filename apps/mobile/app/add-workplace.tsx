@@ -15,7 +15,7 @@ import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
 const PRESET_COLORS = [
-  '#5E6AD2',
+  '#367BFD',
   '#10B981',
   '#F59E0B',
   '#EF4444',
