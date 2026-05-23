@@ -11,6 +11,7 @@ import { Row } from '@/components/ui/Row';
 import { Screen } from '@/components/ui/Screen';
 import { Stack } from '@/components/ui/Stack';
 import { Type } from '@/components/ui/Type';
+import { EarningsChart } from '@/components/charts/EarningsChart';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 import { shiftDurationHours, shiftEarnings } from '@/lib/shift';
@@ -137,15 +138,10 @@ export default function AnalyticsScreen() {
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Trend
+              Last 30 days
             </Type>
-            <Card style={styles.chartPlaceholder}>
-              <View style={styles.chartContent}>
-                <Feather name="bar-chart-2" size={32} color={theme.textSubtle} />
-                <Type variant="caption" tone="subtle">
-                  Chart coming soon
-                </Type>
-              </View>
+            <Card>
+              <EarningsChart shifts={shifts} days={30} />
             </Card>
           </Stack>
 
