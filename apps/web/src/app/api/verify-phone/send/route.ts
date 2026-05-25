@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   try {
     await sns.send(new PublishCommand({
       PhoneNumber: phone_number,
-      Message: `Your ShiftFlow verification code is: ${otp}. Valid for 10 minutes.`,
+      Message: `Your TimesheetAI verification code is: ${otp}. Valid for 10 minutes.`,
     }))
   } catch (err) {
     console.error('SNS send error:', err)

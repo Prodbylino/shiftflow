@@ -1,13 +1,13 @@
 {
-  "name": "shiftflow",
+  "name": "timesheetai",
   "private": true,
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "dev:web": "turbo dev --filter=@shiftflow/web",
-    "dev:mobile": "turbo dev --filter=@shiftflow/mobile",
-    "build:web": "turbo build --filter=@shiftflow/web"
+    "dev:web": "turbo dev --filter=@timesheetai/web",
+    "dev:mobile": "turbo dev --filter=@timesheetai/mobile",
+    "build:web": "turbo build --filter=@timesheetai/web"
   },
   "devDependencies": {
     "turbo": "^2"

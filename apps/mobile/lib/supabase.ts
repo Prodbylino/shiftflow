@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createShiftFlowClient } from '@shiftflow/shared'
+import { createTimesheetAIClient } from '@timesheetai/shared'
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
@@ -11,7 +11,7 @@ if (!url || !anonKey) {
   )
 }
 
-export const supabase = createShiftFlowClient({
+export const supabase = createTimesheetAIClient({
   url,
   anonKey,
   storage: AsyncStorage,

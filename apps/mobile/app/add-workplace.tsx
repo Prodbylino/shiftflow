@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useOrganizations } from '@shiftflow/shared';
+import { useAuth, useOrganizations } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Row } from '@/components/ui/Row';

@@ -1,5 +1,5 @@
 {
-  "name": "@shiftflow/web",
+  "name": "@timesheetai/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@shiftflow/shared": "workspace:*",
+    "@timesheetai/shared": "workspace:*",
     "@aws-sdk/client-sns": "^3.998.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",

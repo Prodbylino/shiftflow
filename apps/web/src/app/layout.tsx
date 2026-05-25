@@ -22,7 +22,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "ShiftFlow - Manage Your Shifts",
+  title: "TimesheetAI - Manage Your Shifts",
   description: "Simple shift management for healthcare workers",
 };
 

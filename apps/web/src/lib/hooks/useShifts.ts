@@ -6,7 +6,7 @@ import { runSupabaseQueryWithRetry } from '@/lib/supabase/operations'
 import { Shift, ShiftInsert, ShiftUpdate, ShiftWithOrganization } from '@/types/database'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-const SHIFTS_STORAGE_KEY = 'shiftflow_shifts'
+const SHIFTS_STORAGE_KEY = 'timesheetai_shifts'
 const EXTERNAL_AUTH_LOADING_HINT_MS = 25000
 type SupabaseErrorLike = {
   message?: string
@@ -97,7 +97,7 @@ export function useShifts(options?: UseShiftsOptions): UseShiftsReturn {
       return externalUserId ?? null
     }
 
-    const storedUser = getFromLocalStorage('shiftflow_user')
+    const storedUser = getFromLocalStorage('timesheetai_user')
     return storedUser?.id || null
   })
 

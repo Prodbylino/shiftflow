@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </div>
-          <span className="text-2xl font-bold text-gray-900 font-display">ShiftFlow</span>
+          <span className="text-2xl font-bold text-gray-900 font-display">TimesheetAI</span>
         </Link>
         <LanguageSwitch />
       </nav>

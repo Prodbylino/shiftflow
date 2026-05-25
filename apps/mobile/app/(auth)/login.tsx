@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@shiftflow/shared';
+import { useAuth } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Stack } from '@/components/ui/Stack';

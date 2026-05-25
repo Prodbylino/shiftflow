@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useMemo } from 'react';
 
-import { useAuth, useShifts } from '@shiftflow/shared';
+import { useAuth, useShifts } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';

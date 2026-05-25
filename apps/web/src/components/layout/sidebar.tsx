@@ -92,7 +92,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </div>
-          <span className="text-2xl font-bold text-gray-900 font-display">ShiftFlow</span>
+          <span className="text-2xl font-bold text-gray-900 font-display">TimesheetAI</span>
         </div>
       </div>
 
@@ -210,7 +210,7 @@ export function MobileHeader({ onMenuClick }: { onMenuClick: () => void }) {
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
         </div>
-        <span className="text-xl font-bold text-gray-900 font-display">ShiftFlow</span>
+        <span className="text-xl font-bold text-gray-900 font-display">TimesheetAI</span>
       </div>
     </div>
   )

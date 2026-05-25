@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useMemo } from 'react';
 
-import { ShiftWithOrganization } from '@shiftflow/shared';
+import { ShiftWithOrganization } from '@timesheetai/shared';
 
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';

@@ -21,7 +21,7 @@ export default function Home() {
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </div>
-            <span className="text-2xl font-bold text-gray-900 font-display">ShiftFlow</span>
+            <span className="text-2xl font-bold text-gray-900 font-display">TimesheetAI</span>
           </div>
           <div className="flex items-center gap-4">
             <LanguageSwitch />
@@ -68,7 +68,7 @@ export default function Home() {
       {/* Footer - Minimal */}
       <footer className="py-8 px-6 border-t border-gray-100">
         <div className="max-w-7xl mx-auto text-center text-gray-500">
-          <p>&copy; 2025 ShiftFlow</p>
+          <p>&copy; 2025 TimesheetAI</p>
         </div>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-import type { ShiftWithOrganization } from '@shiftflow/shared';
+import type { ShiftWithOrganization } from '@timesheetai/shared';
 
 const DAY_MS = 86400000;
 

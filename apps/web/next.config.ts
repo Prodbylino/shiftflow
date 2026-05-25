@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@shiftflow/shared"],
+  transpilePackages: ["@timesheetai/shared"],
 };
 
 export default nextConfig;

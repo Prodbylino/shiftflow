@@ -66,12 +66,12 @@ function buildSmsMessage(title: string, startTime: string, lang: string): string
 function buildCallMessage(title: string, startTime: string, lang: string): { message: string; voice: string } {
   if (lang === 'zh') {
     return {
-      message: `您好，这是来自ShiftFlow的班次提醒。您在${title}的班次将于${formatTimeChinese(startTime)}开始，请准时出发，工作愉快！`,
+      message: `您好，这是来自TimesheetAI的班次提醒。您在${title}的班次将于${formatTimeChinese(startTime)}开始，请准时出发，工作愉快！`,
       voice: 'Polly.Zhiyu',
     }
   }
   return {
-    message: `This is a reminder from ShiftFlow. Your shift at ${capitalize(title)} starts at ${formatTime(startTime)}. Have a great shift!`,
+    message: `This is a reminder from TimesheetAI. Your shift at ${capitalize(title)} starts at ${formatTime(startTime)}. Have a great shift!`,
     voice: 'Polly.Nicole',
   }
 }

@@ -1,6 +1,6 @@
 import { createClient as createSbClient, SupabaseClient } from '@supabase/supabase-js'
 
-export type ShiftFlowClient = SupabaseClient
+export type TimesheetAIClient = SupabaseClient
 
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null> | string | null
@@ -15,7 +15,7 @@ export interface CreateClientOptions {
   detectSessionInUrl?: boolean
 }
 
-export function createShiftFlowClient(opts: CreateClientOptions): ShiftFlowClient {
+export function createTimesheetAIClient(opts: CreateClientOptions): TimesheetAIClient {
   return createSbClient(opts.url, opts.anonKey, {
     auth: {
       autoRefreshToken: true,

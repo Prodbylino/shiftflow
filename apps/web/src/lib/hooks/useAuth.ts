@@ -6,7 +6,7 @@ import { User, Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { Profile } from '@/types/database'
 
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000
-const LAST_ACTIVITY_KEY = 'shiftflow_last_activity_at'
+const LAST_ACTIVITY_KEY = 'timesheetai_last_activity_at'
 
 // Check if Supabase is configured
 const isSupabaseConfigured = () => {
@@ -65,11 +65,11 @@ export function useAuth(): UseAuthReturn {
         .eq('id', userId)
         .single()
       setProfile(profileData)
-      setToLocalStorage('shiftflow_profile', profileData)
+      setToLocalStorage('timesheetai_profile', profileData)
     } catch {
       // Profile fetch failed, continue without profile
       setProfile(null)
-      setToLocalStorage('shiftflow_profile', null)
+      setToLocalStorage('timesheetai_profile', null)
     }
   }, [])
 
@@ -109,8 +109,8 @@ export function useAuth(): UseAuthReturn {
             await supabase.auth.signOut()
             setUser(null)
             setProfile(null)
-            setToLocalStorage('shiftflow_user', null)
-            setToLocalStorage('shiftflow_profile', null)
+            setToLocalStorage('timesheetai_user', null)
+            setToLocalStorage('timesheetai_profile', null)
             clearLastActivity()
             window.location.href = '/login?reason=timeout'
             return
@@ -118,14 +118,14 @@ export function useAuth(): UseAuthReturn {
 
           setLastActivity()
           setUser(session.user)
-          setToLocalStorage('shiftflow_user', session.user)
+          setToLocalStorage('timesheetai_user', session.user)
           // Load profile in background so UI can render immediately
           void fetchProfile(session.user.id, supabase)
         } else {
           setUser(null)
           setProfile(null)
-          setToLocalStorage('shiftflow_user', null)
-          setToLocalStorage('shiftflow_profile', null)
+          setToLocalStorage('timesheetai_user', null)
+          setToLocalStorage('timesheetai_profile', null)
           clearLastActivity()
         }
       } catch (error) {
@@ -201,8 +201,8 @@ export function useAuth(): UseAuthReturn {
       if (!isMounted) return
       setUser(null)
       setProfile(null)
-      setToLocalStorage('shiftflow_user', null)
-      setToLocalStorage('shiftflow_profile', null)
+      setToLocalStorage('timesheetai_user', null)
+      setToLocalStorage('timesheetai_profile', null)
       clearLastActivity()
       window.location.href = '/login?reason=timeout'
     }

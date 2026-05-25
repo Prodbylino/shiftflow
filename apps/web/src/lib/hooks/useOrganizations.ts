@@ -56,7 +56,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
   const externalAuthLoading = options?.authLoading ?? false
   const usingExternalAuth = typeof externalUserId !== 'undefined'
 
-  const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('shiftflow_orgs') || [])
+  const [organizations, setOrganizations] = useState<Organization[]>(() => getFromLocalStorage('timesheetai_orgs') || [])
   const [loading, setLoading] = useState(usingExternalAuth ? externalAuthLoading : true)
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(externalUserId ?? null)
@@ -101,7 +101,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
       setError(null)
       setOrganizations(data || [])
-      setToLocalStorage('shiftflow_orgs', data || [])
+      setToLocalStorage('timesheetai_orgs', data || [])
       console.log('[useOrganizations] Fetched organizations from DB:', (data || []).length, 'orgs')
     } catch (fetchException) {
       if (cachedOrganizationsRef.current) {
@@ -138,7 +138,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
       if (!externalUserId) {
         setOrganizations([])
-        setToLocalStorage('shiftflow_orgs', [])
+        setToLocalStorage('timesheetai_orgs', [])
         setLoading(false)
         return
       }
@@ -185,7 +185,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
         } else {
           setUserId(null)
           setOrganizations([])
-          setToLocalStorage('shiftflow_orgs', [])
+          setToLocalStorage('timesheetai_orgs', [])
         }
       } catch (error) {
         console.error('Error in handleSession:', error)
@@ -314,7 +314,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
     const updatedOrgs = [data, ...organizations]
     setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    setToLocalStorage('timesheetai_orgs', updatedOrgs)
     return data
   }
 
@@ -341,7 +341,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
     const updatedOrgs = organizations.map(org => org.id === id ? { ...org, ...updates } as Organization : org)
     setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    setToLocalStorage('timesheetai_orgs', updatedOrgs)
     return true
   }
 
@@ -368,7 +368,7 @@ export function useOrganizations(options?: UseOrganizationsOptions): UseOrganiza
 
     const updatedOrgs = organizations.filter(org => org.id !== id)
     setOrganizations(updatedOrgs)
-    setToLocalStorage('shiftflow_orgs', updatedOrgs)
+    setToLocalStorage('timesheetai_orgs', updatedOrgs)
     return true
   }
 

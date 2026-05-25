@@ -6,9 +6,9 @@ export { translations, translate } from './i18n/translations'
 export type { Language, TranslationEntry, Translations } from './i18n/translations'
 
 // Supabase client factory + provider
-export { createShiftFlowClient } from './supabase/createClient'
+export { createTimesheetAIClient } from './supabase/createClient'
 export type {
-  ShiftFlowClient,
+  TimesheetAIClient,
   StorageAdapter,
   CreateClientOptions,
 } from './supabase/createClient'

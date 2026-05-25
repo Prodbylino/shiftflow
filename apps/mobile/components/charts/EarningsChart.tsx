@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import type { ShiftWithOrganization } from '@shiftflow/shared';
+import type { ShiftWithOrganization } from '@timesheetai/shared';
 
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
