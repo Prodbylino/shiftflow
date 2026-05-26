@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,123 @@ import { useOrganizations } from '@/lib/hooks'
 import { LoadingSpinner } from '@/components/ui/loading'
 import { toast } from 'sonner'
 import { useDashboardAuth } from '@/lib/dashboard-auth-context'
+
+type OrgRowProps = {
+  org: { id: string; name: string; color: string; hourly_rate: number }
+  onUpdate: (id: string, updates: { name?: string; color?: string; hourly_rate?: number }) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+  hourlyRateLabel: string
+  perHourLabel: string
+  colorLabel: string
+}
+
+/**
+ * Single editable workplace row. Holds *local* draft state for the
+ * text inputs so fast typing doesn't fight with the refetch-on-update
+ * cycle. Commits to the server on blur (or Enter), not on every keystroke.
+ */
+function OrgRow({ org, onUpdate, onDelete, hourlyRateLabel, perHourLabel, colorLabel }: OrgRowProps) {
+  const [name, setName] = useState(org.name)
+  const [rate, setRate] = useState(String(org.hourly_rate ?? 0))
+
+  // Sync local state when the server value changes for reasons outside this row
+  // (e.g., another tab edited it). Skip while the user is actively typing — we
+  // detect that by checking the input has focus via document.activeElement at
+  // commit time, but the cheaper proxy is: only sync if the row id changed.
+  useEffect(() => {
+    setName(org.name)
+    setRate(String(org.hourly_rate ?? 0))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org.id])
+
+  const commitName = () => {
+    const trimmed = name.trim()
+    if (trimmed && trimmed !== org.name) {
+      onUpdate(org.id, { name: trimmed })
+    } else if (!trimmed) {
+      setName(org.name) // revert empty name
+    }
+  }
+
+  const commitRate = () => {
+    const parsed = parseFloat(rate)
+    if (Number.isFinite(parsed) && parsed >= 0 && parsed !== org.hourly_rate) {
+      onUpdate(org.id, { hourly_rate: parsed })
+    } else if (!Number.isFinite(parsed) || parsed < 0) {
+      setRate(String(org.hourly_rate ?? 0)) // revert invalid
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl p-6 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div
+          className="w-6 h-6 rounded-full mt-1 flex-shrink-0"
+          style={{ backgroundColor: org.color }}
+        />
+
+        <div className="flex-1 space-y-4">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              if (e.key === 'Escape') setName(org.name)
+            }}
+            className="input-senior text-xl font-semibold border-0 bg-transparent p-0 h-auto"
+          />
+
+          <div className="flex items-center gap-3">
+            <Label className="text-lg text-gray-600 w-24">{hourlyRateLabel}</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">$</span>
+              <Input
+                type="number"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                onBlur={commitRate}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  if (e.key === 'Escape') setRate(String(org.hourly_rate ?? 0))
+                }}
+                className="w-24 h-12 text-lg rounded-xl"
+              />
+              <span className="text-lg text-gray-500">{perHourLabel}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Label className="text-lg text-gray-600 w-24">{colorLabel}</Label>
+            <div className="flex gap-2">
+              {colorOptions.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => onUpdate(org.id, { color: color.value })}
+                  className={`w-10 h-10 rounded-full transition-transform ${
+                    org.color === color.value ? 'ring-4 ring-offset-2 ring-gray-400 scale-110' : ''
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onDelete(org.id)}
+          className="text-gray-400 hover:text-red-500 transition-colors p-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const colorOptions = [
   { value: '#2563eb', name: 'Blue' },
@@ -141,68 +258,15 @@ export default function OrganizationsPage() {
         {/* Existing Organizations */}
         <div className="space-y-4 mb-8">
           {organizations.map((org) => (
-            <div key={org.id} className="bg-white rounded-2xl p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                {/* Color Indicator */}
-                <div
-                  className="w-6 h-6 rounded-full mt-1 flex-shrink-0"
-                  style={{ backgroundColor: org.color }}
-                />
-
-                <div className="flex-1 space-y-4">
-                  {/* Org Name */}
-                  <Input
-                    value={org.name}
-                    onChange={(e) => handleUpdateOrg(org.id, { name: e.target.value })}
-                    className="input-senior text-xl font-semibold border-0 bg-transparent p-0 h-auto"
-                  />
-
-                  {/* Hourly Rate */}
-                  <div className="flex items-center gap-3">
-                    <Label className="text-lg text-gray-600 w-24">{t('org.hourlyRate')}</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">$</span>
-                      <Input
-                        type="number"
-                        value={org.hourly_rate || 0}
-                        onChange={(e) => handleUpdateOrg(org.id, { hourly_rate: parseFloat(e.target.value) || 0 })}
-                        className="w-24 h-12 text-lg rounded-xl"
-                      />
-                      <span className="text-lg text-gray-500">{t('org.perHour')}</span>
-                    </div>
-                  </div>
-
-                  {/* Color Selection */}
-                  <div className="flex items-center gap-3">
-                    <Label className="text-lg text-gray-600 w-24">{t('org.color')}</Label>
-                    <div className="flex gap-2">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color.value}
-                          onClick={() => handleUpdateOrg(org.id, { color: color.value })}
-                          className={`w-10 h-10 rounded-full transition-transform ${
-                            org.color === color.value ? 'ring-4 ring-offset-2 ring-gray-400 scale-110' : ''
-                          }`}
-                          style={{ backgroundColor: color.value }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Delete Button */}
-                <button
-                  onClick={() => handleDeleteOrg(org.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18"/>
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
+            <OrgRow
+              key={org.id}
+              org={org}
+              onUpdate={handleUpdateOrg}
+              onDelete={handleDeleteOrg}
+              hourlyRateLabel={t('org.hourlyRate')}
+              perHourLabel={t('org.perHour')}
+              colorLabel={t('org.color')}
+            />
           ))}
         </div>
 
