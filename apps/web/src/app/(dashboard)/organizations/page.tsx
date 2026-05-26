@@ -42,11 +42,10 @@ export default function OrganizationsPage() {
 
   const handleUpdateOrg = async (id: string, updates: { name?: string; color?: string; hourly_rate?: number }) => {
     const success = await updateOrganization(id, updates)
-    if (success) {
-      toast.success(t('org.updated') || 'Organization updated')
-    } else {
+    if (!success) {
       toast.error(t('org.updateFailed') || 'Failed to update organization')
     }
+    // No success toast — field edits auto-save silently
   }
 
   const handleAddOrg = async () => {
