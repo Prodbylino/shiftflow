@@ -97,6 +97,11 @@ export const translations: Translations = {
   'org.save': { en: 'Save', zh: '保存' },
   'org.addNew': { en: 'Add New Organization', zh: '添加新公司' },
   'org.name': { en: 'Organization Name', zh: '公司名称' },
+  'org.created': { en: 'Workplace added', zh: '工作单位已添加' },
+  'org.updated': { en: 'Workplace updated', zh: '工作单位已更新' },
+  'org.deleted': { en: 'Workplace deleted', zh: '工作单位已删除' },
+  'org.updateFailed': { en: 'Could not update workplace', zh: '更新工作单位失败' },
+  'org.deleteFailed': { en: 'Could not delete workplace', zh: '删除工作单位失败' },
 
   // User Menu
   'user.settings': { en: 'Account Settings', zh: '账户设置' },
