@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ShiftFlow",
-    "slug": "shiftflow",
+    "name": "TimesheetAI",
+    "slug": "timesheetai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "shiftflow",
+    "scheme": "timesheetai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.shiftflow.app"
+      "bundleIdentifier": "com.timesheetai.app"
     },
     "android": {
-      "package": "com.shiftflow.app",
+      "package": "com.timesheetai.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#367BFD"

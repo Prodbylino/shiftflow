@@ -1,8 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
-import { translations, translate } from '@shiftflow/shared/i18n'
-import type { Language } from '@shiftflow/shared/i18n'
+import { translations, translate } from '@timesheetai/shared/i18n'
+import type { Language } from '@timesheetai/shared/i18n'
 
 interface I18nContextType {
   lang: Language

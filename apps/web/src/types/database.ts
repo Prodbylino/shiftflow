@@ -1,2 +1,2 @@
 // Re-export all types from shared package
-export * from '@shiftflow/shared/types'
+export * from '@timesheetai/shared/types'

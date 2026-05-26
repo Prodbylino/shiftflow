@@ -1,8 +1,8 @@
-# ShiftFlow iOS App — Implementation Plan
+# TimesheetAI iOS App — Implementation Plan
 
 ## Context
 
-ShiftFlow web MVP (Next.js 16 + Supabase) is deployed and running on Vercel. The goal is to create a native iOS app that shares business logic with the web version, passes App Store review reliably, and supports a commercial SaaS model with cross-platform subscriptions in the future.
+TimesheetAI web MVP (Next.js 16 + Supabase) is deployed and running on Vercel. The goal is to create a native iOS app that shares business logic with the web version, passes App Store review reliably, and supports a commercial SaaS model with cross-platform subscriptions in the future.
 
 ## Recommended Approach: Expo (React Native) + Turborepo Monorepo
 
@@ -79,7 +79,7 @@ shift-planner/                    # repo root
 - Next.js app moved to `apps/web/`
 - `packages/shared/` created (database types + i18n translations)
 - `apps/web/` re-exports from shared; `pnpm build` passes
-- **What happened to database.ts**: full 322-line file was COPIED to `packages/shared/src/types/database.ts`. The `apps/web/src/types/database.ts` was replaced with a 2-line re-export (`export * from '@shiftflow/shared/types'`). All existing imports in web app still work unchanged.
+- **What happened to database.ts**: full 322-line file was COPIED to `packages/shared/src/types/database.ts`. The `apps/web/src/types/database.ts` was replaced with a 2-line re-export (`export * from '@timesheetai/shared/types'`). All existing imports in web app still work unchanged.
 
 ### Phase 1: Refactor Hooks for Platform Independence (3-4 days)
 - Create `StorageAdapter` interface (localStorage on web, AsyncStorage on mobile)
@@ -95,7 +95,7 @@ shift-planner/                    # repo root
 
 ### Phase 2: Expo Project Scaffold (2-3 days)
 1. `npx create-expo-app apps/mobile --template tabs`
-2. Configure `app.json` (bundle ID: `com.shiftflow.app`)
+2. Configure `app.json` (bundle ID: `com.timesheetai.app`)
 3. Set up Expo Router tabs: Dashboard, Organizations, Analytics, Settings
 4. Install: `@supabase/supabase-js`, `@react-native-async-storage/async-storage`, `expo-secure-store`, `expo-notifications`
 5. Wire shared hooks → verify data loads from Supabase

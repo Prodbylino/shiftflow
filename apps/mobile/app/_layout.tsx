@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { SupabaseProvider, useAuth } from '@shiftflow/shared';
+import { SupabaseProvider, useAuth } from '@timesheetai/shared';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { supabase } from '@/lib/supabase';

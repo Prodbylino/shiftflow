@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback } from 'react';
 
-import { useAuth, useProfile } from '@shiftflow/shared';
+import { useAuth, useProfile } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -221,7 +221,7 @@ export default function SettingsScreen() {
 
           <Stack gap="xs" style={{ alignItems: 'center', marginTop: spacing.xl }}>
             <Type variant="caption" tone="subtle">
-              ShiftFlow · v1.0.0
+              TimesheetAI · v1.0.0
             </Type>
           </Stack>
         </Stack>
