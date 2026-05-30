@@ -32,6 +32,18 @@ export function MonthGrid({ month, selected, shifts, onSelectDay }: Props) {
     return map;
   }, [shifts]);
 
+  // Slice the 42 cells into 6 rows of 7 so each row can render its children
+  // with flex: 1. Using flexWrap + percentage widths was off-by-rounding on
+  // device — 7 cells of 14.285…% summed to slightly over 100%, wrapping the
+  // last cell of each row and visually losing Saturday.
+  const rows = useMemo(() => {
+    const out: Date[][] = [];
+    for (let r = 0; r < 6; r++) {
+      out.push(cells.slice(r * 7, r * 7 + 7));
+    }
+    return out;
+  }, [cells]);
+
   return (
     <View>
       <View style={styles.weekdayRow}>
@@ -43,65 +55,69 @@ export function MonthGrid({ month, selected, shifts, onSelectDay }: Props) {
           </View>
         ))}
       </View>
-      <View style={styles.grid}>
-        {cells.map((day) => {
-          const inMonth = isSameMonth(day, month);
-          const isToday = isSameDay(day, today);
-          const isSelected = isSameDay(day, selected);
-          const key = dateKey(day);
-          const dayShifts = shiftsByDay.get(key) ?? [];
-          const dots = dayShifts.slice(0, MAX_DOTS);
-          const overflow = dayShifts.length - MAX_DOTS;
+      <View>
+        {rows.map((row, rowIdx) => (
+          <View key={rowIdx} style={styles.row}>
+            {row.map((day) => {
+              const inMonth = isSameMonth(day, month);
+              const isToday = isSameDay(day, today);
+              const isSelected = isSameDay(day, selected);
+              const key = dateKey(day);
+              const dayShifts = shiftsByDay.get(key) ?? [];
+              const dots = dayShifts.slice(0, MAX_DOTS);
+              const overflow = dayShifts.length - MAX_DOTS;
 
-          return (
-            <Pressable
-              key={key}
-              onPress={() => onSelectDay(day)}
-              style={({ pressed }) => [
-                styles.cell,
-                isSelected && {
-                  backgroundColor: theme.surfaceMuted,
-                },
-                pressed && { opacity: 0.7 },
-              ]}>
-              <View style={styles.cellInner}>
-                <View
-                  style={[
-                    styles.dayNumberWrap,
-                    isToday && { backgroundColor: theme.text },
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => onSelectDay(day)}
+                  style={({ pressed }) => [
+                    styles.cell,
+                    isSelected && {
+                      backgroundColor: theme.surfaceMuted,
+                    },
+                    pressed && { opacity: 0.7 },
                   ]}>
-                  <Type
-                    variant="captionMedium"
-                    style={{
-                      color: isToday
-                        ? theme.bg
-                        : inMonth
-                          ? theme.text
-                          : theme.textSubtle,
-                    }}>
-                    {day.getDate()}
-                  </Type>
-                </View>
-                <View style={styles.dotsRow}>
-                  {dots.map((s, idx) => (
+                  <View style={styles.cellInner}>
                     <View
-                      key={`${s.id}-${idx}`}
                       style={[
-                        styles.dot,
-                        { backgroundColor: s.organization?.color ?? theme.brand },
-                      ]}
-                    />
-                  ))}
-                  {overflow > 0 ? (
-                    <Type variant="micro" tone="subtle" style={{ marginLeft: 2 }}>
-                      +{overflow}
-                    </Type>
-                  ) : null}
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
+                        styles.dayNumberWrap,
+                        isToday && { backgroundColor: theme.text },
+                      ]}>
+                      <Type
+                        variant="captionMedium"
+                        style={{
+                          color: isToday
+                            ? theme.bg
+                            : inMonth
+                              ? theme.text
+                              : theme.textSubtle,
+                        }}>
+                        {day.getDate()}
+                      </Type>
+                    </View>
+                    <View style={styles.dotsRow}>
+                      {dots.map((s, idx) => (
+                        <View
+                          key={`${s.id}-${idx}`}
+                          style={[
+                            styles.dot,
+                            { backgroundColor: s.organization?.color ?? theme.brand },
+                          ]}
+                        />
+                      ))}
+                      {overflow > 0 ? (
+                        <Type variant="micro" tone="subtle" style={{ marginLeft: 2 }}>
+                          +{overflow}
+                        </Type>
+                      ) : null}
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -117,12 +133,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  grid: {
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
   },
   cell: {
-    width: `${100 / 7}%`,
+    flex: 1,
     aspectRatio: 0.9,
     padding: 2,
   },

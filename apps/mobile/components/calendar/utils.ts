@@ -20,13 +20,15 @@ export const endOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMont
 export const addMonths = (d: Date, n: number): Date =>
   new Date(d.getFullYear(), d.getMonth() + n, 1);
 
-// Returns 42 cells (6 rows × 7 cols) covering the month, padded with adjacent month days.
-// Weeks start on Sunday (US convention; tweak if needed).
+// Returns 42 cells (6 rows × 7 cols) covering the month, padded with adjacent
+// month days. Weeks start on Monday — matches Apple Calendar and the rest of
+// the world outside the US.
 export const getMonthGrid = (d: Date): Date[] => {
   const first = startOfMonth(d);
-  const startWeekday = first.getDay(); // 0 = Sun
+  // Convert JS getDay (0=Sun..6=Sat) to Monday-start offset (0=Mon..6=Sun)
+  const mondayOffset = (first.getDay() + 6) % 7;
   const gridStart = new Date(first);
-  gridStart.setDate(first.getDate() - startWeekday);
+  gridStart.setDate(first.getDate() - mondayOffset);
 
   const cells: Date[] = [];
   for (let i = 0; i < 42; i++) {
@@ -40,4 +42,6 @@ export const getMonthGrid = (d: Date): Date[] => {
 export const monthLabel = (d: Date): string =>
   d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-export const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+// Two-letter labels for ambiguous days (T = Tue/Thu, S = Sat/Sun) — matches
+// the iPhone Calendar app's header style.
+export const WEEKDAY_LABELS = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
