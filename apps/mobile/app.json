@@ -8,6 +8,13 @@
     "scheme": "timesheetai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "owner": "lino888",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9c6f428d-36eb-4415-bae3-27e88cbe5ddb"
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +22,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.timesheetai.app"
+      "bundleIdentifier": "com.timesheetai.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.timesheetai.app",
@@ -33,10 +43,17 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9c6f428d-36eb-4415-bae3-27e88cbe5ddb"
+      }
     }
   }
 }
