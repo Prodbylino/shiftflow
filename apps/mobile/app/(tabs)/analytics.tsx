@@ -46,9 +46,6 @@ export default function AnalyticsScreen() {
     let thisMonthEarnings = 0;
     let thisMonthShifts = 0;
     let lastMonthEarnings = 0;
-    let bestDayEarnings = 0;
-    let bestDay: string | null = null;
-    const dailyTotals = new Map<string, number>();
 
     for (const s of shifts) {
       if (s.date > todayIso) continue;
@@ -59,12 +56,6 @@ export default function AnalyticsScreen() {
         thisMonthHours += h;
         thisMonthEarnings += earn;
         thisMonthShifts += 1;
-        const dayTotal = (dailyTotals.get(s.date) ?? 0) + earn;
-        dailyTotals.set(s.date, dayTotal);
-        if (dayTotal > bestDayEarnings) {
-          bestDayEarnings = dayTotal;
-          bestDay = s.date;
-        }
       }
       if (s.date >= lastMonth.start && s.date <= lastMonth.end) {
         lastMonthEarnings += earn;
@@ -77,21 +68,12 @@ export default function AnalyticsScreen() {
         ? Math.round(((thisMonthEarnings - lastMonthEarnings) / lastMonthEarnings) * 100)
         : null;
 
-    const bestDayLabel = bestDay
-      ? new Date(bestDay + 'T00:00:00').toLocaleDateString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-        })
-      : '—';
-
     return {
       thisMonthHours: Math.round(thisMonthHours),
       thisMonthEarnings: Math.round(thisMonthEarnings),
       thisMonthShifts,
       avgShift: avgShift.toFixed(avgShift % 1 ? 1 : 0),
       change,
-      bestDayLabel,
     };
   }, [shifts, todayIso]);
 
@@ -158,7 +140,6 @@ export default function AnalyticsScreen() {
                 <>
                   <BreakdownRow label="Total hours" value={`${analytics.thisMonthHours}h`} />
                   <BreakdownRow label="Average shift" value={`${analytics.avgShift}h`} />
-                  <BreakdownRow label="Best day" value={analytics.bestDayLabel} />
                   <BreakdownRow
                     label="Shifts worked"
                     value={String(analytics.thisMonthShifts)}
