@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useMemo, useState } from 'react';
 
-import { useAuth, useOrganizations, useShifts } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations, useShifts } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -14,18 +14,23 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { Type } from '@/components/ui/Type';
 import { MonthGrid } from '@/components/calendar/MonthGrid';
 import { MonthHeader } from '@/components/calendar/MonthHeader';
-import { addMonths, dateKey, isSameDay } from '@/components/calendar/utils';
+import { addMonths, dateKey, dateLocale, isSameDay } from '@/components/calendar/utils';
 import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 import { shiftDurationHours, shiftEarnings } from '@/lib/shift';
 
 const formatTime = (hms: string): string => hms.slice(0, 5);
-const formatTimeRange = (start: string, end: string, overnight: boolean): string =>
-  `${formatTime(start)} – ${formatTime(end)}${overnight ? ' (next day)' : ''}`;
+const formatTimeRange = (
+  start: string,
+  end: string,
+  overnight: boolean,
+  nextDayLabel: string,
+): string => `${formatTime(start)} – ${formatTime(end)}${overnight ? ` ${nextDayLabel}` : ''}`;
 
 export default function DashboardScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t, language } = useI18n();
   const { user } = useAuth();
   const today = useMemo(() => new Date(), []);
 
@@ -57,16 +62,16 @@ export default function DashboardScreen() {
   );
 
   const selectedLabel = useMemo(() => {
-    if (isSameDay(selected, today)) return 'Today';
+    if (isSameDay(selected, today)) return t('calendar.today');
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-    if (isSameDay(selected, tomorrow)) return 'Tomorrow';
-    return selected.toLocaleDateString('en-US', {
+    if (isSameDay(selected, tomorrow)) return t('dash.tomorrow');
+    return selected.toLocaleDateString(dateLocale(language), {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
     });
-  }, [selected, today]);
+  }, [selected, today, t, language]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
@@ -96,7 +101,7 @@ export default function DashboardScreen() {
               </Type>
               {dayShifts.length > 0 && (
                 <Type variant="captionMedium" tone="muted">
-                  {dayShifts.length} {dayShifts.length === 1 ? 'shift' : 'shifts'}
+                  {dayShifts.length} {dayShifts.length === 1 ? t('dash.shift') : t('dash.shifts')}
                 </Type>
               )}
             </Row>
@@ -114,10 +119,10 @@ export default function DashboardScreen() {
                     color={theme.textSubtle}
                   />
                   <Type variant="bodyMedium" tone="muted">
-                    {hasWorkplaces ? 'No shifts on this day' : 'No workplaces yet'}
+                    {hasWorkplaces ? t('dash.noShifts') : t('dash.noWorkplaces')}
                   </Type>
                   <Type variant="caption" tone="subtle">
-                    {hasWorkplaces ? 'Tap + to add one' : 'Tap + to add your first workplace'}
+                    {hasWorkplaces ? t('dash.tapToAddShift') : t('dash.tapToAddWorkplace')}
                   </Type>
                 </Stack>
               </Card>
@@ -130,8 +135,8 @@ export default function DashboardScreen() {
                   return (
                     <SwipeableRow
                       key={shift.id}
-                      confirmTitle="Delete shift?"
-                      confirmMessage="This cannot be undone."
+                      confirmTitle={t('shift.deleteTitle')}
+                      confirmMessage={t('shift.deleteMessage')}
                       onDelete={() => deleteShift(shift.id)}>
                       <Pressable
                         onPress={() =>
@@ -153,7 +158,12 @@ export default function DashboardScreen() {
                                     {shift.organization?.name ?? shift.title}
                                   </Type>
                                   <Type variant="caption" tone="muted">
-                                    {formatTimeRange(shift.start_time, shift.end_time, overnight)}
+                                    {formatTimeRange(
+                                      shift.start_time,
+                                      shift.end_time,
+                                      overnight,
+                                      t('shift.nextDay'),
+                                    )}
                                   </Type>
                                 </Stack>
                                 <Stack gap="xs" style={{ alignItems: 'flex-end' }}>

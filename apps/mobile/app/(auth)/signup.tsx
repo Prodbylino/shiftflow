@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@timesheetai/shared';
+import { useAuth, useI18n } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Stack } from '@/components/ui/Stack';
@@ -14,6 +14,7 @@ import { useTheme } from '@/components/useTheme';
 
 export default function SignupScreen() {
   const theme = useTheme();
+  const { t } = useI18n();
   const { signUp } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -33,7 +34,7 @@ export default function SignupScreen() {
       setError(signUpError);
       return;
     }
-    setConfirmation('Check your email for a confirmation link.');
+    setConfirmation(t('auth.checkEmailConfirm'));
   };
 
   return (
@@ -43,15 +44,15 @@ export default function SignupScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack gap="3xl" style={styles.container}>
           <Stack gap="xs">
-            <Type variant="display">Create account</Type>
+            <Type variant="display">{t('auth.createAccount')}</Type>
             <Type variant="body" tone="muted">
-              Track shifts across all your jobs
+              {t('auth.signupTagline')}
             </Type>
           </Stack>
 
           <Stack gap="lg">
             <TextField
-              label="Email"
+              label={t('auth.email')}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
@@ -61,13 +62,13 @@ export default function SignupScreen() {
               placeholder="you@example.com"
             />
             <TextField
-              label="Password"
+              label={t('auth.password')}
               secureTextEntry
               autoComplete="new-password"
               textContentType="newPassword"
               value={password}
               onChangeText={setPassword}
-              placeholder="At least 6 characters"
+              placeholder={t('auth.passwordMin')}
               error={error ?? undefined}
             />
           </Stack>
@@ -78,15 +79,15 @@ export default function SignupScreen() {
             </Type>
           ) : null}
 
-          <Button label="Create account" onPress={onSubmit} loading={submitting} />
+          <Button label={t('auth.createAccount')} onPress={onSubmit} loading={submitting} />
 
           <Pressable style={styles.linkRow}>
             <Type variant="caption" tone="muted">
-              Already have an account?{' '}
+              {t('auth.hasAccount')}{' '}
             </Type>
             <Link href="/(auth)/login" asChild>
               <Pressable>
-                <Type variant="captionMedium">Sign in</Type>
+                <Type variant="captionMedium">{t('auth.signIn')}</Type>
               </Pressable>
             </Link>
           </Pressable>

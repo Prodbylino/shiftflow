@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useOrganizations } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Row } from '@/components/ui/Row';
@@ -35,6 +35,7 @@ const PRESET_COLORS = [
 export default function WorkplaceDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { organizations, updateOrganization, deleteOrganization } = useOrganizations(
@@ -67,12 +68,12 @@ export default function WorkplaceDetailScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">Workplace</Type>
+          <Type variant="h3">{t('wk.detail')}</Type>
           <View style={{ width: 22 }} />
         </View>
         <View style={styles.emptyState}>
           <Type variant="bodyMedium" tone="muted">
-            Workplace not found
+            {t('wk.notFound')}
           </Type>
         </View>
       </SafeAreaView>
@@ -84,11 +85,11 @@ export default function WorkplaceDetailScreen() {
     const trimmed = name.trim();
     const rate = parseFloat(hourlyRate);
     if (!trimmed) {
-      setError('Name is required');
+      setError(t('wk.nameRequired'));
       return;
     }
     if (!Number.isFinite(rate) || rate <= 0) {
-      setError('Enter a valid hourly rate');
+      setError(t('wk.rateInvalid'));
       return;
     }
     setSubmitting(true);
@@ -97,32 +98,28 @@ export default function WorkplaceDetailScreen() {
     if (ok) {
       router.back();
     } else {
-      setError('Could not save changes');
+      setError(t('wk.couldNotSaveChanges'));
     }
   };
 
   const onDelete = () => {
-    Alert.alert(
-      'Delete workplace?',
-      'Existing shifts at this workplace will also be removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            const ok = await deleteOrganization(org.id);
-            setDeleting(false);
-            if (ok) {
-              router.back();
-            } else {
-              setError('Could not delete workplace');
-            }
-          },
+    Alert.alert(t('wk.deleteTitle'), t('wk.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          const ok = await deleteOrganization(org.id);
+          setDeleting(false);
+          if (ok) {
+            router.back();
+          } else {
+            setError(t('wk.couldNotDelete'));
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   return (
@@ -134,15 +131,20 @@ export default function WorkplaceDetailScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">Edit workplace</Type>
+          <Type variant="h3">{t('wk.edit')}</Type>
           <View style={{ width: 22 }} />
         </View>
 
         <Stack gap="2xl" style={styles.body}>
-          <TextField label="Name" value={name} onChangeText={setName} placeholder="Coffee Bean" />
+          <TextField
+            label={t('wk.name')}
+            value={name}
+            onChangeText={setName}
+            placeholder={t('wk.namePlaceholder')}
+          />
 
           <TextField
-            label="Hourly rate"
+            label={t('wk.hourlyRate')}
             value={hourlyRate}
             onChangeText={setHourlyRate}
             placeholder="26.00"
@@ -151,7 +153,7 @@ export default function WorkplaceDetailScreen() {
 
           <Stack gap="sm">
             <Type variant="micro" tone="muted">
-              Color
+              {t('wk.color')}
             </Type>
             <Row gap="md" style={{ flexWrap: 'wrap' }}>
               {PRESET_COLORS.map((c) => (
@@ -177,9 +179,9 @@ export default function WorkplaceDetailScreen() {
           ) : null}
 
           <Stack gap="md">
-            <Button label="Save changes" onPress={onSave} loading={submitting} />
+            <Button label={t('wk.saveChanges')} onPress={onSave} loading={submitting} />
             <Button
-              label="Delete workplace"
+              label={t('wk.delete')}
               variant="ghost"
               onPress={onDelete}
               loading={deleting}

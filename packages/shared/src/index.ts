@@ -4,6 +4,8 @@ export * from './types/database'
 // i18n
 export { translations, translate } from './i18n/translations'
 export type { Language, TranslationEntry, Translations } from './i18n/translations'
+export { I18nProvider, useI18n } from './i18n/I18nProvider'
+export type { I18nContextValue } from './i18n/I18nProvider'
 
 // Supabase client factory + provider
 export { createTimesheetAIClient } from './supabase/createClient'

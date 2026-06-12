@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { SupabaseProvider, useAuth } from '@timesheetai/shared';
+import { I18nProvider, SupabaseProvider, useAuth } from '@timesheetai/shared';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SupabaseProvider client={supabase}>
-        <RootLayoutNav />
+        <I18nProvider>
+          <RootLayoutNav />
+        </I18nProvider>
       </SupabaseProvider>
     </GestureHandlerRootView>
   );

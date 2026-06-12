@@ -1,12 +1,19 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useMemo } from 'react';
 
-import { ShiftWithOrganization } from '@timesheetai/shared';
+import { ShiftWithOrganization, useI18n } from '@timesheetai/shared';
 
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
-import { dateKey, getMonthGrid, isSameDay, isSameMonth, WEEKDAY_LABELS } from './utils';
+import {
+  dateKey,
+  getMonthGrid,
+  isSameDay,
+  isSameMonth,
+  WEEKDAY_LABELS,
+  WEEKDAY_LABELS_ZH,
+} from './utils';
 
 type Props = {
   month: Date;
@@ -19,6 +26,8 @@ const MAX_DOTS = 3;
 
 export function MonthGrid({ month, selected, shifts, onSelectDay }: Props) {
   const theme = useTheme();
+  const { language } = useI18n();
+  const weekdayLabels = language === 'zh' ? WEEKDAY_LABELS_ZH : WEEKDAY_LABELS;
   const cells = useMemo(() => getMonthGrid(month), [month]);
   const today = useMemo(() => new Date(), []);
 
@@ -47,7 +56,7 @@ export function MonthGrid({ month, selected, shifts, onSelectDay }: Props) {
   return (
     <View>
       <View style={styles.weekdayRow}>
-        {WEEKDAY_LABELS.map((label, i) => (
+        {weekdayLabels.map((label, i) => (
           <View key={`${label}-${i}`} style={styles.weekdayCell}>
             <Type variant="micro" tone="subtle">
               {label}

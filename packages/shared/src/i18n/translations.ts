@@ -118,6 +118,157 @@ export const translations: Translations = {
   'auth.hasAccount': { en: 'Already have an account?', zh: '已有账户？' },
   'auth.signupNow': { en: 'Sign up now', zh: '立即注册' },
   'auth.loginNow': { en: 'Log in now', zh: '立即登录' },
+
+  // ── Mobile app ──────────────────────────────────────────────
+
+  // Tab bar
+  'tabs.dashboard': { en: 'Dashboard', zh: '日历' },
+  'tabs.workplaces': { en: 'Workplaces', zh: '工作单位' },
+  'tabs.analytics': { en: 'Analytics', zh: '数据分析' },
+  'tabs.settings': { en: 'Settings', zh: '设置' },
+
+  // Common
+  'common.cancel': { en: 'Cancel', zh: '取消' },
+  'common.delete': { en: 'Delete', zh: '删除' },
+  'common.loading': { en: 'Loading…', zh: '加载中…' },
+  'common.deleteTitle': { en: 'Delete?', zh: '确定删除？' },
+  'common.deleteMessage': { en: 'This cannot be undone.', zh: '此操作无法撤销。' },
+
+  // Dashboard
+  'dash.tomorrow': { en: 'Tomorrow', zh: '明天' },
+  'dash.shift': { en: 'shift', zh: '个班次' },
+  'dash.shifts': { en: 'shifts', zh: '个班次' },
+  'dash.noShifts': { en: 'No shifts on this day', zh: '这天没有班次' },
+  'dash.noWorkplaces': { en: 'No workplaces yet', zh: '还没有工作单位' },
+  'dash.tapToAddShift': { en: 'Tap + to add one', zh: '点 + 添加一个' },
+  'dash.tapToAddWorkplace': {
+    en: 'Tap + to add your first workplace',
+    zh: '点 + 添加第一个工作单位',
+  },
+
+  // Analytics (mobile)
+  'analytics.earnedThisMonth': { en: 'Earned this month', zh: '本月收入' },
+  'analytics.vsLastMonth': { en: 'vs last month', zh: '对比上月' },
+  'analytics.noLastMonth': { en: 'No data for last month', zh: '上月暂无数据' },
+  'analytics.last30Days': { en: 'Last 30 days', zh: '最近 30 天' },
+  'analytics.breakdown': { en: 'Breakdown', zh: '明细' },
+  'analytics.avgShift': { en: 'Average shift', zh: '平均班次时长' },
+  'analytics.shiftsWorked': { en: 'Shifts worked', zh: '班次数' },
+  'analytics.peakDay': { en: 'Peak day', zh: '最高单日' },
+  'analytics.daysAgoSuffix': { en: 'd ago', zh: ' 天前' },
+
+  // Workplaces
+  'wk.title': { en: 'Workplaces', zh: '工作单位' },
+  'wk.active': { en: 'active', zh: '个使用中' },
+  'wk.addFirstTitle': { en: 'Add your first workplace', zh: '添加你的第一个工作单位' },
+  'wk.addFirstHint': {
+    en: 'Workplaces hold the hourly rate and color used across the calendar',
+    zh: '工作单位保存时薪和日历中显示的颜色',
+  },
+  'wk.add': { en: 'Add workplace', zh: '添加工作单位' },
+  'wk.new': { en: 'New workplace', zh: '新建工作单位' },
+  'wk.edit': { en: 'Edit workplace', zh: '编辑工作单位' },
+  'wk.detail': { en: 'Workplace', zh: '工作单位' },
+  'wk.notFound': { en: 'Workplace not found', zh: '找不到该工作单位' },
+  'wk.name': { en: 'Name', zh: '名称' },
+  'wk.namePlaceholder': { en: 'e.g. Coffee Bean', zh: '例如：咖啡店' },
+  'wk.hourlyRate': { en: 'Hourly rate', zh: '时薪' },
+  'wk.color': { en: 'Color', zh: '颜色' },
+  'wk.save': { en: 'Save workplace', zh: '保存工作单位' },
+  'wk.saveChanges': { en: 'Save changes', zh: '保存修改' },
+  'wk.delete': { en: 'Delete workplace', zh: '删除工作单位' },
+  'wk.deleteTitle': { en: 'Delete workplace?', zh: '删除工作单位？' },
+  'wk.deleteMessage': {
+    en: 'Existing shifts at this workplace will also be removed.',
+    zh: '该工作单位下已有的班次也会被一并删除。',
+  },
+  'wk.nameRequired': { en: 'Name is required', zh: '请输入名称' },
+  'wk.rateInvalid': { en: 'Enter a valid hourly rate', zh: '请输入有效时薪' },
+  'wk.couldNotSave': { en: 'Could not save workplace', zh: '保存工作单位失败' },
+  'wk.couldNotSaveChanges': { en: 'Could not save changes', zh: '保存修改失败' },
+  'wk.couldNotDelete': { en: 'Could not delete workplace', zh: '删除工作单位失败' },
+
+  // Shift form (mobile)
+  'shift.new': { en: 'New shift', zh: '新建班次' },
+  'shift.editTitle': { en: 'Edit shift', zh: '编辑班次' },
+  'shift.detail': { en: 'Shift', zh: '班次' },
+  'shift.notFound': { en: 'Shift not found', zh: '找不到该班次' },
+  'shift.workplace': { en: 'Workplace', zh: '工作单位' },
+  'shift.addWorkplaceFirst': { en: 'Add a workplace first', zh: '请先添加工作单位' },
+  'shift.overnight': { en: 'Overnight', zh: '跨夜班' },
+  'shift.overnightHint': { en: 'Ends the following day', zh: '次日结束' },
+  'shift.notes': { en: 'Notes (optional)', zh: '备注（可选）' },
+  'shift.notesPlaceholder': { en: 'Anything to remember', zh: '想记的都可以写' },
+  'shift.save': { en: 'Save shift', zh: '保存班次' },
+  'shift.saveChanges': { en: 'Save changes', zh: '保存修改' },
+  'shift.deleteShift': { en: 'Delete shift', zh: '删除班次' },
+  'shift.deleteTitle': { en: 'Delete shift?', zh: '删除班次？' },
+  'shift.deleteMessage': { en: 'This cannot be undone.', zh: '此操作无法撤销。' },
+  'shift.pickWorkplace': { en: 'Pick a workplace', zh: '请选择工作单位' },
+  'shift.couldNotSave': { en: 'Could not save shift', zh: '保存班次失败' },
+  'shift.couldNotSaveChanges': { en: 'Could not save changes', zh: '保存修改失败' },
+  'shift.couldNotDelete': { en: 'Could not delete shift', zh: '删除班次失败' },
+
+  // Settings (mobile)
+  'settings.title': { en: 'Settings', zh: '设置' },
+  'settings.account': { en: 'Account', zh: '账户' },
+  'settings.notifications': { en: 'Notifications', zh: '通知' },
+  'settings.preferences': { en: 'Preferences', zh: '偏好设置' },
+  'settings.smsReminders': { en: 'SMS reminders', zh: '短信提醒' },
+  'settings.voiceCalls': { en: 'Voice calls', zh: '语音电话提醒' },
+  'settings.reminderTiming': { en: 'Reminder timing', zh: '提醒时间' },
+  'settings.language': { en: 'Language', zh: '语言' },
+  'settings.signOut': { en: 'Sign out', zh: '退出登录' },
+  'settings.signOutTitle': { en: 'Sign out?', zh: '退出登录？' },
+  'settings.signOutMessage': {
+    en: 'You will need to sign in again to access your shifts.',
+    zh: '退出后需要重新登录才能查看班次。',
+  },
+  'settings.phoneRequiredTitle': { en: 'Phone number required', zh: '需要电话号码' },
+  'settings.phoneRequiredMessage': {
+    en: 'Add a phone number in Profile before enabling reminders.',
+    zh: '请先在个人资料中添加电话号码，再开启提醒。',
+  },
+  'settings.openProfile': { en: 'Open Profile', zh: '打开个人资料' },
+  'settings.reminder5': { en: '5 minutes before', zh: '提前 5 分钟' },
+  'settings.reminder15': { en: '15 minutes before', zh: '提前 15 分钟' },
+  'settings.reminder30': { en: '30 minutes before', zh: '提前 30 分钟' },
+  'settings.reminder60': { en: '1 hour before', zh: '提前 1 小时' },
+  'settings.reminder120': { en: '2 hours before', zh: '提前 2 小时' },
+
+  // Profile (mobile)
+  'profile.title': { en: 'Profile', zh: '个人资料' },
+  'profile.fullName': { en: 'Full name', zh: '姓名' },
+  'profile.namePlaceholder': { en: 'Your name', zh: '你的名字' },
+  'profile.phone': { en: 'Phone number', zh: '电话号码' },
+  'profile.verified': { en: 'Verified', zh: '已验证' },
+  'profile.verifyComingSoon': {
+    en: 'Verification flow coming soon — saves the number for now',
+    zh: '验证功能即将上线，目前先保存号码',
+  },
+  'profile.save': { en: 'Save profile', zh: '保存个人资料' },
+  'profile.couldNotSave': { en: 'Could not save profile', zh: '保存个人资料失败' },
+
+  // Auth (mobile)
+  'auth.welcomeBack': { en: 'Welcome back', zh: '欢迎回来' },
+  'auth.signInToContinue': { en: 'Sign in to continue', zh: '登录以继续' },
+  'auth.signIn': { en: 'Sign in', zh: '登录' },
+  'auth.signUpAction': { en: 'Sign up', zh: '注册' },
+  'auth.createAccount': { en: 'Create account', zh: '创建账户' },
+  'auth.signupTagline': { en: 'Track shifts across all your jobs', zh: '追踪你所有工作的班次' },
+  'auth.passwordMin': { en: 'At least 6 characters', zh: '至少 6 个字符' },
+  'auth.checkEmailConfirm': {
+    en: 'Check your email for a confirmation link.',
+    zh: '请查收邮箱中的确认链接。',
+  },
+  'auth.resetTitle': { en: 'Reset password', zh: '重置密码' },
+  'auth.resetSubtitle': { en: "We'll email you a reset link", zh: '我们会把重置链接发到你的邮箱' },
+  'auth.checkEmailReset': {
+    en: 'Check your email for the reset link.',
+    zh: '请查收邮箱中的重置链接。',
+  },
+  'auth.sendResetLink': { en: 'Send reset link', zh: '发送重置链接' },
+  'auth.backToSignIn': { en: 'Back to sign in', zh: '返回登录' },
 }
 
 export function translate(key: string, lang: Language): string {

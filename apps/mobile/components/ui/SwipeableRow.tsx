@@ -3,6 +3,8 @@ import { ReactNode, useRef } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 
+import { useI18n } from '@timesheetai/shared';
+
 import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 import { Type } from '@/components/ui/Type';
@@ -14,31 +16,31 @@ type Props = {
   confirmMessage?: string;
 };
 
-export function SwipeableRow({
-  children,
-  onDelete,
-  confirmTitle = 'Delete?',
-  confirmMessage = 'This cannot be undone.',
-}: Props) {
+export function SwipeableRow({ children, onDelete, confirmTitle, confirmMessage }: Props) {
   const theme = useTheme();
+  const { t } = useI18n();
   const ref = useRef<Swipeable | null>(null);
 
   const requestDelete = () => {
-    Alert.alert(confirmTitle, confirmMessage, [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-        onPress: () => ref.current?.close(),
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await onDelete();
-          ref.current?.close();
+    Alert.alert(
+      confirmTitle ?? t('common.deleteTitle'),
+      confirmMessage ?? t('common.deleteMessage'),
+      [
+        {
+          text: t('common.cancel'),
+          style: 'cancel',
+          onPress: () => ref.current?.close(),
         },
-      },
-    ]);
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await onDelete();
+            ref.current?.close();
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -57,7 +59,7 @@ export function SwipeableRow({
             ]}>
             <Feather name="trash-2" size={18} color="#fff" />
             <Type variant="captionMedium" style={{ color: '#fff' }}>
-              Delete
+              {t('common.delete')}
             </Type>
           </Pressable>
         </View>

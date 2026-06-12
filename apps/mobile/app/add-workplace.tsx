@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useOrganizations } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Row } from '@/components/ui/Row';
@@ -28,6 +28,7 @@ const PRESET_COLORS = [
 export default function AddWorkplaceScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { user } = useAuth();
   const { createOrganization } = useOrganizations(user?.id ?? null);
 
@@ -43,11 +44,11 @@ export default function AddWorkplaceScreen() {
     const rateNum = parseFloat(hourlyRate);
 
     if (!trimmedName) {
-      setError('Name is required');
+      setError(t('wk.nameRequired'));
       return;
     }
     if (!Number.isFinite(rateNum) || rateNum <= 0) {
-      setError('Enter a valid hourly rate');
+      setError(t('wk.rateInvalid'));
       return;
     }
 
@@ -62,7 +63,7 @@ export default function AddWorkplaceScreen() {
     if (result) {
       router.back();
     } else {
-      setError('Could not save workplace');
+      setError(t('wk.couldNotSave'));
     }
   };
 
@@ -75,21 +76,21 @@ export default function AddWorkplaceScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">New workplace</Type>
+          <Type variant="h3">{t('wk.new')}</Type>
           <View style={{ width: 22 }} />
         </View>
 
         <Stack gap="2xl" style={styles.body}>
           <TextField
-            label="Name"
+            label={t('wk.name')}
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Coffee Bean"
+            placeholder={t('wk.namePlaceholder')}
             autoFocus
           />
 
           <TextField
-            label="Hourly rate"
+            label={t('wk.hourlyRate')}
             value={hourlyRate}
             onChangeText={setHourlyRate}
             placeholder="26.00"
@@ -98,7 +99,7 @@ export default function AddWorkplaceScreen() {
 
           <Stack gap="sm">
             <Type variant="micro" tone="muted">
-              Color
+              {t('wk.color')}
             </Type>
             <Row gap="md" style={{ flexWrap: 'wrap' }}>
               {PRESET_COLORS.map((c) => (
@@ -123,7 +124,7 @@ export default function AddWorkplaceScreen() {
             </Type>
           ) : null}
 
-          <Button label="Save workplace" onPress={onSubmit} loading={submitting} />
+          <Button label={t('wk.save')} onPress={onSubmit} loading={submitting} />
         </Stack>
       </KeyboardAvoidingView>
     </SafeAreaView>

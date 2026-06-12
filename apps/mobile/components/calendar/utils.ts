@@ -39,9 +39,13 @@ export const getMonthGrid = (d: Date): Date[] => {
   return cells;
 };
 
-export const monthLabel = (d: Date): string =>
-  d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+export const dateLocale = (language: 'en' | 'zh'): string =>
+  language === 'zh' ? 'zh-CN' : 'en-US';
+
+export const monthLabel = (d: Date, language: 'en' | 'zh' = 'en'): string =>
+  d.toLocaleDateString(dateLocale(language), { month: 'long', year: 'numeric' });
 
 // Two-letter labels for ambiguous days (T = Tue/Thu, S = Sat/Sun) — matches
 // the iPhone Calendar app's header style.
 export const WEEKDAY_LABELS = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
+export const WEEKDAY_LABELS_ZH = ['一', '二', '三', '四', '五', '六', '日'];

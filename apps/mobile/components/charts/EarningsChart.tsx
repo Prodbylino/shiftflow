@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { useI18n } from '@timesheetai/shared';
 import type { ShiftWithOrganization } from '@timesheetai/shared';
 
 import { Type } from '@/components/ui/Type';
@@ -21,6 +22,7 @@ const dateKey = (d: Date): string => {
 
 export function EarningsChart({ shifts, days = 30 }: Props) {
   const theme = useTheme();
+  const { t, language } = useI18n();
 
   const dailyTotals = new Map<string, number>();
   for (const s of shifts) {
@@ -48,7 +50,9 @@ export function EarningsChart({ shifts, days = 30 }: Props) {
     return (
       <View style={styles.empty}>
         <Type variant="caption" tone="subtle">
-          No earnings in the last {days} days
+          {language === 'zh'
+            ? `最近 ${days} 天没有收入`
+            : `No earnings in the last ${days} days`}
         </Type>
       </View>
     );
@@ -87,19 +91,19 @@ export function EarningsChart({ shifts, days = 30 }: Props) {
 
       <View style={[styles.axis, { borderTopColor: theme.borderMuted }]}>
         <Type variant="micro" tone="subtle">
-          {`${days}d ago`}
+          {`${days}${t('analytics.daysAgoSuffix')}`}
         </Type>
         <Type variant="micro" tone="subtle">
-          Today
+          {t('calendar.today')}
         </Type>
       </View>
 
       <View style={styles.legend}>
         <Type variant="caption" tone="muted">
-          Peak day: ${max.toLocaleString()}
+          {t('analytics.peakDay')}: ${max.toLocaleString()}
         </Type>
         <Type variant="caption" tone="muted">
-          Total: ${total.toLocaleString()}
+          {t('analytics.total')}: ${total.toLocaleString()}
         </Type>
       </View>
     </View>
