@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useMemo } from 'react';
 
-import { useAuth, useShifts } from '@timesheetai/shared';
+import { useAuth, useI18n, useShifts } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -28,6 +28,7 @@ const monthRange = (offsetMonths: number) => {
 
 export default function AnalyticsScreen() {
   const theme = useTheme();
+  const { t, language } = useI18n();
   const { user } = useAuth();
   const { shifts, loading, refetch } = useShifts({ userId: user?.id ?? null });
 
@@ -77,14 +78,17 @@ export default function AnalyticsScreen() {
     };
   }, [shifts, todayIso]);
 
-  const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = new Date().toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
       <Screen onRefresh={refetch}>
         <Stack gap="3xl">
           <Stack gap="xs">
-            <Type variant="display">Analytics</Type>
+            <Type variant="display">{t('analytics.title')}</Type>
             <Type variant="caption" tone="muted">
               {monthLabel}
             </Type>
@@ -93,7 +97,7 @@ export default function AnalyticsScreen() {
           <Card>
             <Stack gap="md">
               <Type variant="micro" tone="muted">
-                Earned this month
+                {t('analytics.earnedThisMonth')}
               </Type>
               <Type variant="display">${analytics.thisMonthEarnings.toLocaleString()}</Type>
               {analytics.change !== null ? (
@@ -107,12 +111,12 @@ export default function AnalyticsScreen() {
                     variant="captionMedium"
                     tone={analytics.change >= 0 ? 'success' : 'danger'}>
                     {analytics.change >= 0 ? '+' : ''}
-                    {analytics.change}% vs last month
+                    {analytics.change}% {t('analytics.vsLastMonth')}
                   </Type>
                 </Row>
               ) : (
                 <Type variant="caption" tone="subtle">
-                  No data for last month
+                  {t('analytics.noLastMonth')}
                 </Type>
               )}
             </Stack>
@@ -120,7 +124,7 @@ export default function AnalyticsScreen() {
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Last 30 days
+              {t('analytics.last30Days')}
             </Type>
             <Card>
               <EarningsChart shifts={shifts} days={30} />
@@ -129,7 +133,7 @@ export default function AnalyticsScreen() {
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Breakdown
+              {t('analytics.breakdown')}
             </Type>
             <Card padded={false}>
               {loading ? (
@@ -138,10 +142,10 @@ export default function AnalyticsScreen() {
                 </View>
               ) : (
                 <>
-                  <BreakdownRow label="Total hours" value={`${analytics.thisMonthHours}h`} />
-                  <BreakdownRow label="Average shift" value={`${analytics.avgShift}h`} />
+                  <BreakdownRow label={t('analytics.totalHours')} value={`${analytics.thisMonthHours}h`} />
+                  <BreakdownRow label={t('analytics.avgShift')} value={`${analytics.avgShift}h`} />
                   <BreakdownRow
-                    label="Shifts worked"
+                    label={t('analytics.shiftsWorked')}
                     value={String(analytics.thisMonthShifts)}
                     isLast
                   />

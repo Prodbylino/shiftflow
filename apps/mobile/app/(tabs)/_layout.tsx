@@ -3,6 +3,8 @@ import Feather from '@expo/vector-icons/Feather';
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
+import { useI18n } from '@timesheetai/shared';
+
 import { useTheme } from '@/components/useTheme';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
@@ -13,6 +15,7 @@ function TabIcon({ name, color }: { name: FeatherName; color: string }) {
 
 export default function TabLayout() {
   const theme = useTheme();
+  const { t } = useI18n();
 
   return (
     <Tabs
@@ -36,28 +39,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: t('tabs.dashboard'),
           tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
         name="organizations"
         options={{
-          title: 'Workplaces',
+          title: t('tabs.workplaces'),
           tabBarIcon: ({ color }) => <TabIcon name="briefcase" color={color} />,
         }}
       />
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Analytics',
+          title: t('tabs.analytics'),
           tabBarIcon: ({ color }) => <TabIcon name="bar-chart-2" color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tabs.settings'),
           tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
         }}
       />

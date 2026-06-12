@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@timesheetai/shared';
+import { useAuth, useI18n } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Stack } from '@/components/ui/Stack';
@@ -15,6 +15,7 @@ import { useTheme } from '@/components/useTheme';
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { resetPassword } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -41,14 +42,14 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack gap="3xl" style={styles.container}>
           <Stack gap="xs">
-            <Type variant="display">Reset password</Type>
+            <Type variant="display">{t('auth.resetTitle')}</Type>
             <Type variant="body" tone="muted">
-              We&apos;ll email you a reset link
+              {t('auth.resetSubtitle')}
             </Type>
           </Stack>
 
           <TextField
-            label="Email"
+            label={t('auth.email')}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -61,15 +62,15 @@ export default function ForgotPasswordScreen() {
 
           {sent ? (
             <Type variant="caption" tone="success">
-              Check your email for the reset link.
+              {t('auth.checkEmailReset')}
             </Type>
           ) : null}
 
-          <Button label="Send reset link" onPress={onSubmit} loading={submitting} />
+          <Button label={t('auth.sendResetLink')} onPress={onSubmit} loading={submitting} />
 
           <Pressable style={styles.linkRow} onPress={() => router.back()}>
             <Type variant="captionMedium" tone="muted">
-              Back to sign in
+              {t('auth.backToSignIn')}
             </Type>
           </Pressable>
         </Stack>

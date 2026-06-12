@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useOrganizations, useShifts } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations, useShifts } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { DateTimeField } from '@/components/ui/DateTimeField';
@@ -49,6 +49,7 @@ const parseInitialDate = (raw: string | undefined): Date => {
 export default function AddShiftScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const params = useLocalSearchParams<{ date?: string }>();
   const { user } = useAuth();
   const { organizations, loading: orgsLoading } = useOrganizations(user?.id ?? null);
@@ -67,7 +68,7 @@ export default function AddShiftScreen() {
     setError(null);
 
     if (!orgId) {
-      setError('Pick a workplace');
+      setError(t('shift.pickWorkplace'));
       return;
     }
 
@@ -94,7 +95,7 @@ export default function AddShiftScreen() {
     if (result) {
       router.back();
     } else {
-      setError('Could not save shift');
+      setError(t('shift.couldNotSave'));
     }
   };
 
@@ -107,7 +108,7 @@ export default function AddShiftScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">New shift</Type>
+          <Type variant="h3">{t('shift.new')}</Type>
           <View style={{ width: 22 }} />
         </View>
 
@@ -118,11 +119,11 @@ export default function AddShiftScreen() {
           <Stack gap="2xl">
             <Stack gap="sm">
               <Type variant="micro" tone="muted">
-                Workplace
+                {t('shift.workplace')}
               </Type>
               {orgsLoading ? (
                 <Type variant="caption" tone="muted">
-                  Loading…
+                  {t('common.loading')}
                 </Type>
               ) : organizations.length === 0 ? (
                 <Pressable
@@ -132,7 +133,7 @@ export default function AddShiftScreen() {
                   }}
                   style={[styles.emptyOrgs, { borderColor: theme.border }]}>
                   <Type variant="bodyMedium" tone="muted">
-                    Add a workplace first
+                    {t('shift.addWorkplaceFirst')}
                   </Type>
                 </Pressable>
               ) : (
@@ -172,12 +173,12 @@ export default function AddShiftScreen() {
               )}
             </Stack>
 
-            <DateTimeField label="Date" value={date} onChange={setDate} mode="date" />
+            <DateTimeField label={t('shift.date')} value={date} onChange={setDate} mode="date" />
 
             <Row gap="2xl">
               <View style={{ flex: 1 }}>
                 <DateTimeField
-                  label="Start time"
+                  label={t('shift.startTime')}
                   value={startTime}
                   onChange={setStartTime}
                   mode="time"
@@ -185,7 +186,7 @@ export default function AddShiftScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <DateTimeField
-                  label="End time"
+                  label={t('shift.endTime')}
                   value={endTime}
                   onChange={setEndTime}
                   mode="time"
@@ -195,9 +196,9 @@ export default function AddShiftScreen() {
 
             <Row justify="space-between" align="center">
               <Stack gap="xs">
-                <Type variant="bodyMedium">Overnight</Type>
+                <Type variant="bodyMedium">{t('shift.overnight')}</Type>
                 <Type variant="caption" tone="muted">
-                  Ends the following day
+                  {t('shift.overnightHint')}
                 </Type>
               </Stack>
               <Switch
@@ -208,10 +209,10 @@ export default function AddShiftScreen() {
             </Row>
 
             <TextField
-              label="Notes (optional)"
+              label={t('shift.notes')}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Anything to remember"
+              placeholder={t('shift.notesPlaceholder')}
               multiline
             />
 
@@ -222,7 +223,7 @@ export default function AddShiftScreen() {
             ) : null}
 
             <Button
-              label="Save shift"
+              label={t('shift.save')}
               onPress={onSubmit}
               loading={submitting}
               disabled={organizations.length === 0}

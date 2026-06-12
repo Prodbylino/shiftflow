@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useOrganizations, useShifts } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations, useShifts } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { DateTimeField } from '@/components/ui/DateTimeField';
@@ -39,6 +39,7 @@ const parseTime = (hms: string) => {
 export default function ShiftDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { shifts, updateShift, deleteShift } = useShifts({ userId: user?.id ?? null });
@@ -76,12 +77,12 @@ export default function ShiftDetailScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">Shift</Type>
+          <Type variant="h3">{t('shift.detail')}</Type>
           <View style={{ width: 22 }} />
         </View>
         <View style={styles.emptyState}>
           <Type variant="bodyMedium" tone="muted">
-            Shift not found
+            {t('shift.notFound')}
           </Type>
         </View>
       </SafeAreaView>
@@ -91,7 +92,7 @@ export default function ShiftDetailScreen() {
   const onSave = async () => {
     setError(null);
     if (!orgId) {
-      setError('Pick a workplace');
+      setError(t('shift.pickWorkplace'));
       return;
     }
     const endDateValue = overnight
@@ -114,15 +115,15 @@ export default function ShiftDetailScreen() {
     if (ok) {
       router.back();
     } else {
-      setError('Could not save changes');
+      setError(t('shift.couldNotSaveChanges'));
     }
   };
 
   const onDelete = () => {
-    Alert.alert('Delete shift?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('shift.deleteTitle'), t('shift.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           setDeleting(true);
@@ -131,7 +132,7 @@ export default function ShiftDetailScreen() {
           if (ok) {
             router.back();
           } else {
-            setError('Could not delete shift');
+            setError(t('shift.couldNotDelete'));
           }
         },
       },
@@ -147,7 +148,7 @@ export default function ShiftDetailScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">Edit shift</Type>
+          <Type variant="h3">{t('shift.editTitle')}</Type>
           <View style={{ width: 22 }} />
         </View>
 
@@ -158,7 +159,7 @@ export default function ShiftDetailScreen() {
           <Stack gap="2xl">
             <Stack gap="sm">
               <Type variant="micro" tone="muted">
-                Workplace
+                {t('shift.workplace')}
               </Type>
               <Stack gap="sm">
                 {organizations.map((org) => {
@@ -195,12 +196,12 @@ export default function ShiftDetailScreen() {
               </Stack>
             </Stack>
 
-            <DateTimeField label="Date" value={date} onChange={setDate} mode="date" />
+            <DateTimeField label={t('shift.date')} value={date} onChange={setDate} mode="date" />
 
             <Row gap="2xl">
               <View style={{ flex: 1 }}>
                 <DateTimeField
-                  label="Start time"
+                  label={t('shift.startTime')}
                   value={startTime}
                   onChange={setStartTime}
                   mode="time"
@@ -208,7 +209,7 @@ export default function ShiftDetailScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <DateTimeField
-                  label="End time"
+                  label={t('shift.endTime')}
                   value={endTime}
                   onChange={setEndTime}
                   mode="time"
@@ -218,9 +219,9 @@ export default function ShiftDetailScreen() {
 
             <Row justify="space-between" align="center">
               <Stack gap="xs">
-                <Type variant="bodyMedium">Overnight</Type>
+                <Type variant="bodyMedium">{t('shift.overnight')}</Type>
                 <Type variant="caption" tone="muted">
-                  Ends the following day
+                  {t('shift.overnightHint')}
                 </Type>
               </Stack>
               <Switch
@@ -231,10 +232,10 @@ export default function ShiftDetailScreen() {
             </Row>
 
             <TextField
-              label="Notes (optional)"
+              label={t('shift.notes')}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Anything to remember"
+              placeholder={t('shift.notesPlaceholder')}
               multiline
             />
 
@@ -245,9 +246,9 @@ export default function ShiftDetailScreen() {
             ) : null}
 
             <Stack gap="md">
-              <Button label="Save changes" onPress={onSave} loading={submitting} />
+              <Button label={t('shift.saveChanges')} onPress={onSave} loading={submitting} />
               <Button
-                label="Delete shift"
+                label={t('shift.deleteShift')}
                 variant="ghost"
                 onPress={onDelete}
                 loading={deleting}

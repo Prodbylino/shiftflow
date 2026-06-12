@@ -13,7 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback } from 'react';
 
-import { useAuth, useProfile } from '@timesheetai/shared';
+import { useAuth, useI18n, useProfile } from '@timesheetai/shared';
+import type { Language } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -23,24 +24,19 @@ import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
-const REMINDER_OPTIONS: { label: string; value: number }[] = [
-  { label: '5 minutes before', value: 5 },
-  { label: '15 minutes before', value: 15 },
-  { label: '30 minutes before', value: 30 },
-  { label: '1 hour before', value: 60 },
-  { label: '2 hours before', value: 120 },
+const REMINDER_OPTIONS: { key: string; value: number }[] = [
+  { key: 'settings.reminder5', value: 5 },
+  { key: 'settings.reminder15', value: 15 },
+  { key: 'settings.reminder30', value: 30 },
+  { key: 'settings.reminder60', value: 60 },
+  { key: 'settings.reminder120', value: 120 },
 ];
 
-const LANGUAGE_OPTIONS: { label: string; value: string }[] = [
+// Each language is always shown in its own script, never translated.
+const LANGUAGE_OPTIONS: { label: string; value: Language }[] = [
   { label: 'English', value: 'en' },
   { label: '中文', value: 'zh' },
 ];
-
-const formatReminder = (minutes: number): string => {
-  const opt = REMINDER_OPTIONS.find((o) => o.value === minutes);
-  if (opt) return opt.label;
-  return `${minutes} minutes before`;
-};
 
 const formatLanguage = (code: string): string =>
   LANGUAGE_OPTIONS.find((o) => o.value === code)?.label ?? code;
@@ -48,8 +44,15 @@ const formatLanguage = (code: string): string =>
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t, language, setLanguage } = useI18n();
   const { user, signOut } = useAuth();
   const { profile, loading, refetch, updateProfile } = useProfile(user?.id ?? null);
+
+  const formatReminder = (minutes: number): string => {
+    const opt = REMINDER_OPTIONS.find((o) => o.value === minutes);
+    if (opt) return t(opt.key);
+    return language === 'zh' ? `提前 ${minutes} 分钟` : `${minutes} minutes before`;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -58,32 +61,28 @@ export default function SettingsScreen() {
   );
 
   const confirmSignOut = () => {
-    Alert.alert('Sign out?', 'You will need to sign in again to access your shifts.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: signOut },
+    Alert.alert(t('settings.signOutTitle'), t('settings.signOutMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('settings.signOut'), style: 'destructive', onPress: signOut },
     ]);
   };
 
-  const phoneRequired = (action: string): boolean => {
+  const phoneRequired = (): boolean => {
     if (profile?.phone_number) return true;
-    Alert.alert(
-      'Phone number required',
-      `Add a phone number in Profile before enabling ${action}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Profile', onPress: () => router.push('/profile') },
-      ],
-    );
+    Alert.alert(t('settings.phoneRequiredTitle'), t('settings.phoneRequiredMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('settings.openProfile'), onPress: () => router.push('/profile') },
+    ]);
     return false;
   };
 
   const toggleSms = async (value: boolean) => {
-    if (value && !phoneRequired('SMS reminders')) return;
+    if (value && !phoneRequired()) return;
     await updateProfile({ sms_notifications_enabled: value });
   };
 
   const toggleVoice = async (value: boolean) => {
-    if (value && !phoneRequired('voice call reminders')) return;
+    if (value && !phoneRequired()) return;
     await updateProfile({ voice_call_enabled: value });
   };
 
@@ -91,8 +90,8 @@ export default function SettingsScreen() {
     if (Platform.OS !== 'ios') return;
     ActionSheetIOS.showActionSheetWithOptions(
       {
-        title: 'Reminder timing',
-        options: [...REMINDER_OPTIONS.map((o) => o.label), 'Cancel'],
+        title: t('settings.reminderTiming'),
+        options: [...REMINDER_OPTIONS.map((o) => t(o.key)), t('common.cancel')],
         cancelButtonIndex: REMINDER_OPTIONS.length,
         userInterfaceStyle: theme.scheme,
       },
@@ -108,14 +107,15 @@ export default function SettingsScreen() {
     if (Platform.OS !== 'ios') return;
     ActionSheetIOS.showActionSheetWithOptions(
       {
-        title: 'Language',
-        options: [...LANGUAGE_OPTIONS.map((o) => o.label), 'Cancel'],
+        title: t('settings.language'),
+        options: [...LANGUAGE_OPTIONS.map((o) => o.label), t('common.cancel')],
         cancelButtonIndex: LANGUAGE_OPTIONS.length,
         userInterfaceStyle: theme.scheme,
       },
       (idx) => {
         if (idx >= 0 && idx < LANGUAGE_OPTIONS.length) {
-          updateProfile({ preferred_language: LANGUAGE_OPTIONS[idx].value });
+          // setLanguage flips the whole UI instantly and persists to the profile.
+          setLanguage(LANGUAGE_OPTIONS[idx].value);
         }
       },
     );
@@ -132,17 +132,17 @@ export default function SettingsScreen() {
   }
 
   const displayName =
-    profile?.full_name?.trim() || profile?.email?.split('@')[0] || 'Profile';
+    profile?.full_name?.trim() || profile?.email?.split('@')[0] || t('profile.title');
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={['top']}>
       <Screen onRefresh={refetch}>
         <Stack gap="3xl">
-          <Type variant="display">Settings</Type>
+          <Type variant="display">{t('settings.title')}</Type>
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Account
+              {t('settings.account')}
             </Type>
             <Card padded={false}>
               <SettingRow
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
               />
               <SettingRow
                 icon="log-out"
-                label="Sign out"
+                label={t('settings.signOut')}
                 tone="danger"
                 onPress={confirmSignOut}
                 isLast
@@ -165,12 +165,12 @@ export default function SettingsScreen() {
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Notifications
+              {t('settings.notifications')}
             </Type>
             <Card padded={false}>
               <SettingRow
                 icon="message-square"
-                label="SMS reminders"
+                label={t('settings.smsReminders')}
                 isFirst
                 rightElement={
                   <Switch
@@ -182,7 +182,7 @@ export default function SettingsScreen() {
               />
               <SettingRow
                 icon="phone"
-                label="Voice calls"
+                label={t('settings.voiceCalls')}
                 rightElement={
                   <Switch
                     value={profile?.voice_call_enabled ?? false}
@@ -193,7 +193,7 @@ export default function SettingsScreen() {
               />
               <SettingRow
                 icon="clock"
-                label="Reminder timing"
+                label={t('settings.reminderTiming')}
                 value={formatReminder(profile?.notification_minutes_before ?? 30)}
                 showChevron
                 onPress={pickReminderTiming}
@@ -204,13 +204,13 @@ export default function SettingsScreen() {
 
           <Stack gap="md">
             <Type variant="micro" tone="muted">
-              Preferences
+              {t('settings.preferences')}
             </Type>
             <Card padded={false}>
               <SettingRow
                 icon="globe"
-                label="Language"
-                value={formatLanguage(profile?.preferred_language ?? 'en')}
+                label={t('settings.language')}
+                value={formatLanguage(language)}
                 showChevron
                 onPress={pickLanguage}
                 isFirst

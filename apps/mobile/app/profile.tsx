@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth, useProfile } from '@timesheetai/shared';
+import { useAuth, useI18n, useProfile } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Stack } from '@/components/ui/Stack';
@@ -22,6 +22,7 @@ import { useTheme } from '@/components/useTheme';
 export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { user } = useAuth();
   const { profile, loading, updateProfile } = useProfile(user?.id ?? null);
 
@@ -50,7 +51,7 @@ export default function ProfileScreen() {
     if (ok) {
       router.back();
     } else {
-      setError('Could not save profile');
+      setError(t('profile.couldNotSave'));
     }
   };
 
@@ -63,30 +64,30 @@ export default function ProfileScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Feather name="x" size={22} color={theme.text} />
           </Pressable>
-          <Type variant="h3">Profile</Type>
+          <Type variant="h3">{t('profile.title')}</Type>
           <View style={{ width: 22 }} />
         </View>
 
         <Stack gap="2xl" style={styles.body}>
           <TextField
-            label="Email"
+            label={t('auth.email')}
             value={user?.email ?? ''}
             editable={false}
             placeholderTextColor={theme.textSubtle}
           />
 
           <TextField
-            label="Full name"
+            label={t('profile.fullName')}
             value={fullName}
             onChangeText={setFullName}
-            placeholder="Your name"
+            placeholder={t('profile.namePlaceholder')}
             autoCapitalize="words"
             autoComplete="name"
           />
 
           <Stack gap="xs">
             <TextField
-              label="Phone number"
+              label={t('profile.phone')}
               value={phone}
               onChangeText={setPhone}
               placeholder="+61 4XX XXX XXX"
@@ -95,11 +96,11 @@ export default function ProfileScreen() {
             />
             {profile?.phone_verified ? (
               <Type variant="caption" tone="success">
-                Verified
+                {t('profile.verified')}
               </Type>
             ) : phone ? (
               <Type variant="caption" tone="muted">
-                Verification flow coming soon — saves the number for now
+                {t('profile.verifyComingSoon')}
               </Type>
             ) : null}
           </Stack>
@@ -110,7 +111,7 @@ export default function ProfileScreen() {
             </Type>
           ) : null}
 
-          <Button label="Save profile" onPress={onSave} loading={submitting || loading} />
+          <Button label={t('profile.save')} onPress={onSave} loading={submitting || loading} />
         </Stack>
       </KeyboardAvoidingView>
     </SafeAreaView>

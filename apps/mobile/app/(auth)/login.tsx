@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@timesheetai/shared';
+import { useAuth, useI18n } from '@timesheetai/shared';
 
 import { Button } from '@/components/ui/Button';
 import { Stack } from '@/components/ui/Stack';
@@ -14,6 +14,7 @@ import { useTheme } from '@/components/useTheme';
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const { t } = useI18n();
   const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -39,15 +40,15 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Stack gap="3xl" style={styles.container}>
           <Stack gap="xs">
-            <Type variant="display">Welcome back</Type>
+            <Type variant="display">{t('auth.welcomeBack')}</Type>
             <Type variant="body" tone="muted">
-              Sign in to continue
+              {t('auth.signInToContinue')}
             </Type>
           </Stack>
 
           <Stack gap="lg">
             <TextField
-              label="Email"
+              label={t('auth.email')}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
@@ -57,7 +58,7 @@ export default function LoginScreen() {
               placeholder="you@example.com"
             />
             <TextField
-              label="Password"
+              label={t('auth.password')}
               secureTextEntry
               autoComplete="password"
               textContentType="password"
@@ -68,23 +69,23 @@ export default function LoginScreen() {
             />
           </Stack>
 
-          <Button label="Sign in" onPress={onSubmit} loading={submitting} />
+          <Button label={t('auth.signIn')} onPress={onSubmit} loading={submitting} />
 
           <Link href="/(auth)/forgot-password" asChild>
             <Pressable style={styles.centerLink}>
               <Type variant="captionMedium" tone="muted">
-                Forgot password?
+                {t('auth.forgotPassword')}
               </Type>
             </Pressable>
           </Link>
 
           <Pressable style={styles.linkRow}>
             <Type variant="caption" tone="muted">
-              Don&apos;t have an account?{' '}
+              {t('auth.noAccount')}{' '}
             </Type>
             <Link href="/(auth)/signup" asChild>
               <Pressable>
-                <Type variant="captionMedium">Sign up</Type>
+                <Type variant="captionMedium">{t('auth.signUpAction')}</Type>
               </Pressable>
             </Link>
           </Pressable>

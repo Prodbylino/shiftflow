@@ -1,6 +1,8 @@
 import Feather from '@expo/vector-icons/Feather';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { useI18n } from '@timesheetai/shared';
+
 import { Row } from '@/components/ui/Row';
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
@@ -16,9 +18,10 @@ type Props = {
 
 export function MonthHeader({ date, onPrev, onNext, onToday }: Props) {
   const theme = useTheme();
+  const { t, language } = useI18n();
   return (
     <Row justify="space-between" align="center">
-      <Type variant="h1">{monthLabel(date)}</Type>
+      <Type variant="h1">{monthLabel(date, language)}</Type>
       <Row gap="sm">
         <Pressable
           onPress={onToday}
@@ -27,7 +30,7 @@ export function MonthHeader({ date, onPrev, onNext, onToday }: Props) {
             { borderColor: theme.border, opacity: pressed ? 0.6 : 1 },
           ]}>
           <Type variant="captionMedium" tone="muted">
-            Today
+            {t('calendar.today')}
           </Type>
         </Pressable>
         <IconBtn icon="chevron-left" onPress={onPrev} />

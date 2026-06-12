@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback } from 'react';
 
-import { useAuth, useOrganizations } from '@timesheetai/shared';
+import { useAuth, useI18n, useOrganizations } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
 import { Row } from '@/components/ui/Row';
@@ -18,6 +18,7 @@ import { useTheme } from '@/components/useTheme';
 export default function OrganizationsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const { user } = useAuth();
   const { organizations, loading, refetch, deleteOrganization } = useOrganizations(
     user?.id ?? null,
@@ -34,9 +35,9 @@ export default function OrganizationsScreen() {
       <Screen onRefresh={refetch}>
         <Stack gap="3xl">
           <Stack gap="xs">
-            <Type variant="display">Workplaces</Type>
+            <Type variant="display">{t('wk.title')}</Type>
             <Type variant="caption" tone="muted">
-              {loading ? 'Loading…' : `${organizations.length} active`}
+              {loading ? t('common.loading') : `${organizations.length} ${t('wk.active')}`}
             </Type>
           </Stack>
 
@@ -59,15 +60,15 @@ export default function OrganizationsScreen() {
                 <Feather name="briefcase" size={28} color={theme.text} />
               </View>
               <Stack gap="xs" style={{ alignItems: 'center' }}>
-                <Type variant="h2">Add your first workplace</Type>
+                <Type variant="h2">{t('wk.addFirstTitle')}</Type>
                 <Type variant="caption" tone="muted" style={{ textAlign: 'center' }}>
-                  Workplaces hold the hourly rate and color used across the calendar
+                  {t('wk.addFirstHint')}
                 </Type>
               </Stack>
               <View style={[styles.emptyCta, { backgroundColor: theme.text }]}>
                 <Feather name="plus" size={16} color={theme.bg} />
                 <Type variant="captionMedium" style={{ color: theme.bg }}>
-                  Add workplace
+                  {t('wk.add')}
                 </Type>
               </View>
             </Pressable>
@@ -84,15 +85,15 @@ export default function OrganizationsScreen() {
                   },
                 ]}>
                 <Feather name="plus" size={18} color={theme.text} />
-                <Type variant="bodyMedium">Add workplace</Type>
+                <Type variant="bodyMedium">{t('wk.add')}</Type>
               </Pressable>
 
               <Stack gap="sm">
                 {organizations.map((org) => (
                   <SwipeableRow
                     key={org.id}
-                    confirmTitle="Delete workplace?"
-                    confirmMessage="Existing shifts at this workplace will also be removed."
+                    confirmTitle={t('wk.deleteTitle')}
+                    confirmMessage={t('wk.deleteMessage')}
                     onDelete={() => deleteOrganization(org.id)}>
                     <Pressable
                       onPress={() =>
