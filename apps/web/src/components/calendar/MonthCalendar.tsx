@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n'
+import { formatHours } from '@/lib/utils'
 import { AddShiftModal } from './AddShiftModal'
 import { EditShiftModal } from './EditShiftModal'
 import React from 'react'
@@ -33,16 +34,6 @@ interface MonthCalendarProps {
 }
 
 // Helper functions outside component
-
-// Hours come out as raw floats (e.g. 6.583333…). Show at most 2 decimals,
-// trimming trailing zeros, so totals read "6.58h" / "8h" — never "6.58333333h".
-function formatHours(h: number): string {
-  const rounded = Math.round(h * 100) / 100
-  return Number.isInteger(rounded)
-    ? String(rounded)
-    : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
-}
-
 function calculateShiftHours(shift: Shift): number {
   const [startHour, startMin] = shift.startTime.split(':').map(Number)
   const [endHour, endMin] = shift.endTime.split(':').map(Number)
