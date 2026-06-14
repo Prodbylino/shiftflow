@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { useI18n } from '@/lib/i18n'
+import { formatHours } from '@/lib/utils'
 
 interface Organization {
   id: string
@@ -87,8 +88,10 @@ export function EditShiftModal({
   useEffect(() => {
     if (shift) {
       setSelectedOrg(shift.organizationId)
-      setStartTime(shift.startTime)
-      setEndTime(shift.endTime)
+      // DB times come back as "HH:MM:SS"; the dropdown options are "HH:MM", so
+      // strip seconds or the Select can't match and renders blank.
+      setStartTime(shift.startTime.slice(0, 5))
+      setEndTime(shift.endTime.slice(0, 5))
       setDescription(shift.description || '')
       setStartDate(new Date(shift.date))
       setEndDate(shift.endDate ? new Date(shift.endDate) : new Date(shift.date))
@@ -288,7 +291,7 @@ export function EditShiftModal({
 
             {/* Duration display */}
             <div className="flex items-center justify-end text-lg font-medium text-gray-600">
-              {duration > 0 ? `${duration}h` : '---'}
+              {duration > 0 ? `${formatHours(duration)}h` : '---'}
             </div>
           </div>
 
@@ -307,7 +310,7 @@ export function EditShiftModal({
           <div className="bg-blue-50 rounded-2xl p-5 space-y-2">
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">{t('shift.duration')}</span>
-              <span className="font-bold">{duration}h</span>
+              <span className="font-bold">{formatHours(duration)}h</span>
             </div>
             <div className="flex justify-between text-lg">
               <span className="text-gray-600">{t('shift.income')}</span>
