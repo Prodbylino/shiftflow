@@ -1,7 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -17,35 +16,7 @@ export {
 
 SplashScreen.preventAutoHideAsync();
 
-// By default expo-updates downloads a new OTA bundle in the background and only
-// applies it on the *next* cold start — so a JS fix needs two launches to show
-// up. This pulls and applies any pending update during the current launch, so
-// one relaunch is enough. Disabled in dev / Expo Go, where Updates is inactive
-// and reloadAsync() would throw.
-function useApplyUpdatesOnLaunch() {
-  useEffect(() => {
-    if (__DEV__ || !Updates.isEnabled) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const check = await Updates.checkForUpdateAsync();
-        if (!cancelled && check.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch {
-        // Offline or the update server is unreachable — keep running the
-        // bundle we already have rather than blocking startup.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-}
-
 export default function RootLayout() {
-  useApplyUpdatesOnLaunch();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SupabaseProvider client={supabase}>
