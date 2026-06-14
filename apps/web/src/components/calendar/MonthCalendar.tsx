@@ -33,6 +33,16 @@ interface MonthCalendarProps {
 }
 
 // Helper functions outside component
+
+// Hours come out as raw floats (e.g. 6.583333…). Show at most 2 decimals,
+// trimming trailing zeros, so totals read "6.58h" / "8h" — never "6.58333333h".
+function formatHours(h: number): string {
+  const rounded = Math.round(h * 100) / 100
+  return Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
 function calculateShiftHours(shift: Shift): number {
   const [startHour, startMin] = shift.startTime.split(':').map(Number)
   const [endHour, endMin] = shift.endTime.split(':').map(Number)
@@ -125,9 +135,9 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
     const start = formatTimeCompact(shift.startTime)
     const end = formatTimeCompact(shift.endTime)
     if (isNextDayShift(shift)) {
-      return `${start}-${end} +1d (${hours}h)`
+      return `${start}-${end} +1d (${formatHours(hours)}h)`
     }
-    return `${start}-${end} (${hours}h)`
+    return `${start}-${end} (${formatHours(hours)}h)`
   }
 
   const getShiftsForDate = useCallback((date: Date) => {
@@ -538,7 +548,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
                           <div className="font-bold text-sm truncate">{getOrgName(shift.organizationId)}</div>
                           <div className="text-xs opacity-90">{timeLabel}</div>
                           {shift.isStartDay && (
-                            <div className="text-xs opacity-75">({hours}h)</div>
+                            <div className="text-xs opacity-75">({formatHours(hours)}h)</div>
                           )}
                           {shift.description && shift.isStartDay && (
                             <div className="text-xs mt-1 opacity-80 truncate">
@@ -560,7 +570,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
           <div className="flex items-center justify-center gap-12">
             <div className="text-center">
               <div className="text-xl text-gray-600">{t('calendar.weekTotal')}</div>
-              <div className="text-4xl font-bold text-blue-600">{weekTotal.hours}h</div>
+              <div className="text-4xl font-bold text-blue-600">{formatHours(weekTotal.hours)}h</div>
             </div>
             <div className="text-center">
               <div className="text-xl text-gray-600">{t('shift.income')}</div>
@@ -670,7 +680,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
             {/* Week Total Column */}
             <div className="p-1.5 bg-blue-50 rounded-lg flex flex-col justify-center">
               <div className="text-base font-bold text-blue-600">
-                {week.totalHours}h
+                {formatHours(week.totalHours)}h
               </div>
               <div className="text-sm font-semibold text-green-600">
                 ${week.totalIncome.toFixed(0)}
@@ -747,7 +757,7 @@ export function MonthCalendar({ shifts, organizations, onAddShift, onEditShift, 
           </span>
           <div className="flex items-center gap-8">
             <span className="text-2xl font-bold">
-              {viewMode === 'month' ? monthTotal.hours : weekTotal.hours}h
+              {formatHours(viewMode === 'month' ? monthTotal.hours : weekTotal.hours)}h
             </span>
             <span className="text-2xl font-bold">
               ${viewMode === 'month' ? monthTotal.income.toFixed(0) : weekTotal.income.toFixed(0)}
