@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -21,6 +21,13 @@ function LoginContent() {
   const timedOut = searchParams.get('reason') === 'timeout'
   const passwordReset = searchParams.get('reset') === 'success'
 
+  // Pre-fill the email from the last successful login (set after mount to avoid
+  // an SSR hydration mismatch).
+  useEffect(() => {
+    const lastEmail = window.localStorage.getItem('timesheetai_last_email')
+    if (lastEmail) setEmail(lastEmail)
+  }, [])
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -38,6 +45,9 @@ function LoginContent() {
       setLoading(false)
       return
     }
+
+    // Remember this email so the field is pre-filled next time.
+    window.localStorage.setItem('timesheetai_last_email', email)
 
     // Stamp activity now (synchronously, before navigating) so the dashboard's
     // inactivity check doesn't read a stale timestamp from a prior session and
