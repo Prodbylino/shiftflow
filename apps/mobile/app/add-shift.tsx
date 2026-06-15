@@ -1,6 +1,7 @@
 import Feather from '@expo/vector-icons/Feather';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +23,8 @@ import { TextField } from '@/components/ui/TextField';
 import { Type } from '@/components/ui/Type';
 import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
+
+const LAST_ORG_KEY = 'timesheetai_last_org_id';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -57,6 +60,23 @@ export default function AddShiftScreen() {
 
   const [orgId, setOrgId] = useState<string | null>(null);
   const [date, setDate] = useState<Date>(() => parseInitialDate(params.date));
+
+  // Pre-select a workplace: the one used for the last shift (remembered in
+  // AsyncStorage), falling back to the most recently added workplace. Saves a
+  // tap for the common single-job case.
+  useEffect(() => {
+    if (orgId || organizations.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const lastId = await AsyncStorage.getItem(LAST_ORG_KEY);
+      if (cancelled) return;
+      const remembered = lastId && organizations.some((o) => o.id === lastId) ? lastId : null;
+      setOrgId(remembered ?? organizations[organizations.length - 1].id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizations, orgId]);
   const [overnight, setOvernight] = useState(false);
   const [startTime, setStartTime] = useState<Date>(defaultStart);
   const [endTime, setEndTime] = useState<Date>(defaultEnd);
@@ -93,6 +113,8 @@ export default function AddShiftScreen() {
     setSubmitting(false);
 
     if (result) {
+      // Remember this workplace so the next shift pre-selects it.
+      AsyncStorage.setItem(LAST_ORG_KEY, orgId).catch(() => {});
       router.back();
     } else {
       setError(t('shift.couldNotSave'));

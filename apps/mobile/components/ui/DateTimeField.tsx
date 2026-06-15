@@ -29,7 +29,7 @@ export function DateTimeField({ label, value, onChange, mode, minimumDate, maxim
           value={value}
           mode={mode}
           display="compact"
-          minuteInterval={mode === 'time' ? 5 : undefined}
+          minuteInterval={mode === 'time' ? 30 : undefined}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
           themeVariant={theme.scheme}
