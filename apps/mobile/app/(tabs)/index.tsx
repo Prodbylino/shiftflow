@@ -38,13 +38,17 @@ export default function DashboardScreen() {
   const [selected, setSelected] = useState<Date>(today);
 
   const { shifts, loading, refetch, deleteShift } = useShifts({ userId: user?.id ?? null });
-  const { organizations } = useOrganizations(user?.id ?? null);
+  const { organizations, refetch: refetchOrganizations } = useOrganizations(user?.id ?? null);
   const hasWorkplaces = organizations.length > 0;
 
+  // Refetch organizations too — not just shifts. Otherwise, after adding the
+  // first workplace and returning here, the stale empty list keeps the "add a
+  // workplace first" gate up until the app is restarted.
   useFocusEffect(
     useCallback(() => {
       refetch();
-    }, [refetch]),
+      refetchOrganizations();
+    }, [refetch, refetchOrganizations]),
   );
 
   const goAddShift = () => {
