@@ -6,7 +6,7 @@ import type { ShiftWithOrganization } from '@timesheetai/shared';
 import { Type } from '@/components/ui/Type';
 import { spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
-import { shiftEarnings } from '@/lib/shift';
+import { shiftDurationHours, shiftEarnings } from '@/lib/shift';
 
 type Props = {
   shifts: ShiftWithOrganization[];
@@ -20,33 +20,45 @@ const dateKey = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
+// One decimal, dropped for whole numbers: 25.5 → "25.5", 26 → "26".
+const fmtHours = (h: number): string => {
+  const r = Math.round(h * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+};
+
 export function EarningsChart({ shifts, days = 30 }: Props) {
   const theme = useTheme();
   const { t, language } = useI18n();
 
-  const dailyTotals = new Map<string, number>();
+  const dailyEarnings = new Map<string, number>();
+  const dailyHours = new Map<string, number>();
   for (const s of shifts) {
-    const earn = shiftEarnings(s);
-    dailyTotals.set(s.date, (dailyTotals.get(s.date) ?? 0) + earn);
+    dailyEarnings.set(s.date, (dailyEarnings.get(s.date) ?? 0) + shiftEarnings(s));
+    dailyHours.set(s.date, (dailyHours.get(s.date) ?? 0) + shiftDurationHours(s));
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const series: { date: Date; earnings: number }[] = [];
+  const series: { date: Date; earnings: number; hours: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
+    const key = dateKey(d);
     series.push({
       date: d,
-      earnings: Math.round(dailyTotals.get(dateKey(d)) ?? 0),
+      earnings: Math.round(dailyEarnings.get(key) ?? 0),
+      hours: dailyHours.get(key) ?? 0,
     });
   }
 
-  const max = series.reduce((acc, p) => (p.earnings > acc ? p.earnings : acc), 0);
-  const total = series.reduce((acc, p) => acc + p.earnings, 0);
+  // Peak = highest-earning day; surface its hours alongside.
+  const peak = series.reduce((acc, p) => (p.earnings > acc.earnings ? p : acc), series[0]);
+  const max = peak.earnings;
+  const totalEarnings = series.reduce((acc, p) => acc + p.earnings, 0);
+  const totalHours = series.reduce((acc, p) => acc + p.hours, 0);
 
-  if (total === 0) {
+  if (totalEarnings === 0) {
     return (
       <View style={styles.empty}>
         <Type variant="caption" tone="subtle">
@@ -73,6 +85,14 @@ export function EarningsChart({ shifts, days = 30 }: Props) {
           return (
             <View key={i} style={styles.barCol}>
               <View style={[styles.barTrack, { height: chartHeight }]}>
+                {point.hours > 0 ? (
+                  <Type
+                    tone="subtle"
+                    numberOfLines={1}
+                    style={[styles.barLabel, { bottom: height + 2 }]}>
+                    {fmtHours(point.hours)}h
+                  </Type>
+                ) : null}
                 <View
                   style={[
                     styles.bar,
@@ -100,10 +120,10 @@ export function EarningsChart({ shifts, days = 30 }: Props) {
 
       <View style={styles.legend}>
         <Type variant="caption" tone="muted">
-          {t('analytics.peakDay')}: ${max.toLocaleString()}
+          {t('analytics.peakDay')}: {fmtHours(peak.hours)}h · ${max.toLocaleString()}
         </Type>
         <Type variant="caption" tone="muted">
-          {t('analytics.total')}: ${total.toLocaleString()}
+          {t('analytics.total')}: {fmtHours(totalHours)}h · ${totalEarnings.toLocaleString()}
         </Type>
       </View>
     </View>
@@ -132,6 +152,14 @@ const styles = StyleSheet.create({
     width: '100%',
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
+  },
+  barLabel: {
+    position: 'absolute',
+    left: -8,
+    right: -8,
+    textAlign: 'center',
+    fontSize: 8,
+    lineHeight: 10,
   },
   axis: {
     flexDirection: 'row',

@@ -70,7 +70,9 @@ export default function AnalyticsScreen() {
         : null;
 
     return {
-      thisMonthHours: Math.round(thisMonthHours),
+      // 1-decimal (not integer) so "总工时" stays consistent with "平均班次时长"
+      // for a single shift (e.g. both 25.5h, never 26h vs 25.5h).
+      thisMonthHours: Math.round(thisMonthHours * 10) / 10,
       thisMonthEarnings: Math.round(thisMonthEarnings),
       thisMonthShifts,
       avgShift: avgShift.toFixed(avgShift % 1 ? 1 : 0),
