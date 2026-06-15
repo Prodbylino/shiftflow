@@ -85,14 +85,6 @@ export function EarningsChart({ shifts, days = 30 }: Props) {
           return (
             <View key={i} style={styles.barCol}>
               <View style={[styles.barTrack, { height: chartHeight }]}>
-                {point.hours > 0 ? (
-                  <Type
-                    tone="subtle"
-                    numberOfLines={1}
-                    style={[styles.barLabel, { bottom: height + 2 }]}>
-                    {fmtHours(point.hours)}h
-                  </Type>
-                ) : null}
                 <View
                   style={[
                     styles.bar,
@@ -152,14 +144,6 @@ const styles = StyleSheet.create({
     width: '100%',
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
-  },
-  barLabel: {
-    position: 'absolute',
-    left: -8,
-    right: -8,
-    textAlign: 'center',
-    fontSize: 8,
-    lineHeight: 10,
   },
   axis: {
     flexDirection: 'row',
