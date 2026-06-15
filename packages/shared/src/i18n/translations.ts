@@ -248,6 +248,21 @@ export const translations: Translations = {
   },
   'profile.save': { en: 'Save profile', zh: '保存个人资料' },
   'profile.couldNotSave': { en: 'Could not save profile', zh: '保存个人资料失败' },
+  'profile.verifyToRemind': {
+    en: 'Verify your number to receive shift reminders',
+    zh: '验证号码后才能收到班次提醒',
+  },
+  'profile.sendCode': { en: 'Send code', zh: '发送验证码' },
+  'profile.resend': { en: 'Resend', zh: '重新发送' },
+  'profile.enterCode': { en: 'Enter the 6-digit code', zh: '输入 6 位验证码' },
+  'profile.verify': { en: 'Verify', zh: '验证' },
+  'profile.invalidPhone': {
+    en: 'Enter a valid Australian mobile number',
+    zh: '请输入有效的澳洲手机号',
+  },
+  'profile.codeFormat': { en: 'Enter the 6-digit code', zh: '请输入 6 位验证码' },
+  'profile.sendFailed': { en: 'Could not send the code. Try again.', zh: '验证码发送失败，请重试' },
+  'profile.wrongCode': { en: 'Incorrect or expired code', zh: '验证码错误或已过期' },
 
   // Auth (mobile)
   'auth.welcomeBack': { en: 'Welcome back', zh: '欢迎回来' },

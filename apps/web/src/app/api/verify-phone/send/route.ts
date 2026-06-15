@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns'
-import { createClient } from '@/lib/supabase/server'
+import { authenticateRequest } from '@/lib/supabase/route-auth'
 
 const sns = new SNSClient({
   region: process.env.AWS_REGION ?? 'ap-southeast-2',
@@ -15,10 +15,8 @@ function generateOtp(): string {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
+  const { supabase, user } = await authenticateRequest(req)
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
