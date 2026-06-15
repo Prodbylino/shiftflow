@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { setLastActivity } from '@/lib/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,6 +38,11 @@ function LoginContent() {
       setLoading(false)
       return
     }
+
+    // Stamp activity now (synchronously, before navigating) so the dashboard's
+    // inactivity check doesn't read a stale timestamp from a prior session and
+    // bounce us straight back here with a false "session expired".
+    setLastActivity()
 
     router.push('/dashboard')
     router.refresh()
