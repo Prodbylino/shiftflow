@@ -1,4 +1,5 @@
 import 'react-native-url-polyfill/auto'
+import { AppState } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createTimesheetAIClient } from '@timesheetai/shared'
 
@@ -17,3 +18,17 @@ export const supabase = createTimesheetAIClient({
   storage: AsyncStorage,
   detectSessionInUrl: false,
 })
+
+// The session itself is already persisted (AsyncStorage + persistSession), so a
+// restart restores the login. This keeps the access token actively refreshed
+// while the app is foregrounded — the Supabase-recommended RN pattern — so a
+// long-lived login never lapses and forces an unexpected re-auth. Refresh pauses
+// in the background and resumes on return.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh()
+  } else {
+    supabase.auth.stopAutoRefresh()
+  }
+})
+
