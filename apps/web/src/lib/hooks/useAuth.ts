@@ -23,7 +23,10 @@ const getLastActivity = (): number | null => {
   return Number.isFinite(ts) ? ts : null
 }
 
-const setLastActivity = (timestamp: number = Date.now()) => {
+// Exported so the login flow can stamp activity at sign-in time, before the
+// dashboard mounts — otherwise its INITIAL_LOAD inactivity check reads a stale
+// timestamp from a previous session and bounces a freshly-logged-in user.
+export const setLastActivity = (timestamp: number = Date.now()) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(LAST_ACTIVITY_KEY, String(timestamp))
 }
