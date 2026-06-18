@@ -245,6 +245,12 @@ export const translations: Translations = {
   'settings.reminder30': { en: '30 minutes before', zh: '提前 30 分钟' },
   'settings.reminder60': { en: '1 hour before', zh: '提前 1 小时' },
   'settings.reminder120': { en: '2 hours before', zh: '提前 2 小时' },
+  'settings.earlyReminder': { en: 'Early reminder', zh: '提前提醒' },
+  'settings.earlyOff': { en: 'Off', zh: '关闭' },
+  'settings.early2h': { en: '2 hours before', zh: '提前 2 小时' },
+  'settings.early3h': { en: '3 hours before', zh: '提前 3 小时' },
+  'settings.early5h': { en: '5 hours before', zh: '提前 5 小时' },
+  'settings.early1d': { en: '1 day before', zh: '提前 1 天' },
 
   // Profile (mobile)
   'profile.title': { en: 'Profile', zh: '个人资料' },

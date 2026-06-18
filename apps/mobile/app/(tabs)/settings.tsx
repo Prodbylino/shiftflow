@@ -32,6 +32,15 @@ const REMINDER_OPTIONS: { key: string; value: number }[] = [
   { key: 'settings.reminder120', value: 120 },
 ];
 
+// Optional earlier second reminder. null = off.
+const EARLY_REMINDER_OPTIONS: { key: string; value: number | null }[] = [
+  { key: 'settings.earlyOff', value: null },
+  { key: 'settings.early2h', value: 120 },
+  { key: 'settings.early3h', value: 180 },
+  { key: 'settings.early5h', value: 300 },
+  { key: 'settings.early1d', value: 1440 },
+];
+
 // Each language is always shown in its own script, never translated.
 const LANGUAGE_OPTIONS: { label: string; value: Language }[] = [
   { label: 'English', value: 'en' },
@@ -53,6 +62,11 @@ export default function SettingsScreen() {
     const opt = REMINDER_OPTIONS.find((o) => o.value === minutes);
     if (opt) return t(opt.key);
     return language === 'zh' ? `提前 ${minutes} 分钟` : `${minutes} minutes before`;
+  };
+
+  const formatEarlyReminder = (minutes: number | null | undefined): string => {
+    const opt = EARLY_REMINDER_OPTIONS.find((o) => o.value === (minutes ?? null));
+    return t(opt ? opt.key : 'settings.earlyOff');
   };
 
   useFocusEffect(
@@ -118,6 +132,23 @@ export default function SettingsScreen() {
       (idx) => {
         if (idx >= 0 && idx < REMINDER_OPTIONS.length) {
           updateProfile({ notification_minutes_before: REMINDER_OPTIONS[idx].value });
+        }
+      },
+    );
+  };
+
+  const pickEarlyReminder = () => {
+    if (Platform.OS !== 'ios') return;
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: t('settings.earlyReminder'),
+        options: [...EARLY_REMINDER_OPTIONS.map((o) => t(o.key)), t('common.cancel')],
+        cancelButtonIndex: EARLY_REMINDER_OPTIONS.length,
+        userInterfaceStyle: theme.scheme,
+      },
+      (idx) => {
+        if (idx >= 0 && idx < EARLY_REMINDER_OPTIONS.length) {
+          updateProfile({ early_reminder_minutes_before: EARLY_REMINDER_OPTIONS[idx].value });
         }
       },
     );
@@ -223,6 +254,13 @@ export default function SettingsScreen() {
                 value={formatReminder(profile?.notification_minutes_before ?? 30)}
                 showChevron
                 onPress={pickReminderTiming}
+              />
+              <SettingRow
+                icon="bell"
+                label={t('settings.earlyReminder')}
+                value={formatEarlyReminder(profile?.early_reminder_minutes_before)}
+                showChevron
+                onPress={pickEarlyReminder}
                 isLast
               />
             </Card>

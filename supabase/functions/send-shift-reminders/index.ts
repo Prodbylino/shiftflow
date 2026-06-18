@@ -133,7 +133,7 @@ Deno.serve(async (_req) => {
 
         const { error: insertErr } = await supabase
           .from('shift_notifications')
-          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'sms' })
+          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'sms', reminder_kind: shift.reminder_kind ?? 'main' })
 
         if (insertErr) {
           console.warn(`Insert SMS notification warning for shift ${shift.id}:`, insertErr.message)
@@ -161,7 +161,7 @@ Deno.serve(async (_req) => {
 
         const { error: insertErr } = await supabase
           .from('shift_notifications')
-          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'call' })
+          .insert({ shift_id: shift.id, user_id: shift.user_id, status, notification_type: 'call', reminder_kind: shift.reminder_kind ?? 'main' })
 
         if (insertErr) {
           console.warn(`Insert call notification warning for shift ${shift.id}:`, insertErr.message)
