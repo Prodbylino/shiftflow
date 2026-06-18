@@ -19,6 +19,7 @@ export interface Database {
           sms_notifications_enabled: boolean
           voice_call_enabled: boolean
           notification_minutes_before: number
+          early_reminder_minutes_before: number | null
           timezone: string
           preferred_language: string
           created_at: string
@@ -33,6 +34,7 @@ export interface Database {
           sms_notifications_enabled?: boolean
           voice_call_enabled?: boolean
           notification_minutes_before?: number
+          early_reminder_minutes_before?: number | null
           timezone?: string
           preferred_language?: string
           created_at?: string
@@ -47,6 +49,7 @@ export interface Database {
           sms_notifications_enabled?: boolean
           voice_call_enabled?: boolean
           notification_minutes_before?: number
+          early_reminder_minutes_before?: number | null
           timezone?: string
           preferred_language?: string
           created_at?: string
