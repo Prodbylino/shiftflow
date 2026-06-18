@@ -151,11 +151,13 @@ export default function PrivacyPolicyPage() {
             remove the account.
           </p>
 
-          <h2 className="mt-8 text-2xl font-semibold">7. International users</h2>
+          <h2 className="mt-8 text-2xl font-semibold">7. Where your data is stored</h2>
           <p>
-            Your data is stored on Supabase infrastructure (US-East region). If you access the
-            app from outside the United States, you consent to the transfer of your data to the
-            United States for processing.
+            Your data is stored and processed on Supabase infrastructure hosted in South Korea
+            (Seoul / AWS ap-northeast-2). SMS and voice reminders are delivered via AWS SNS and
+            Twilio, which may process the message and your phone number in other regions. If you
+            access the app from outside South Korea — including Australia — you consent to your
+            data being transferred to and processed in these locations.
           </p>
 
           <h2 className="mt-8 text-2xl font-semibold">8. Changes to this policy</h2>
