@@ -219,6 +219,16 @@ export const translations: Translations = {
   'settings.reminderTiming': { en: 'Reminder timing', zh: '提醒时间' },
   'settings.language': { en: 'Language', zh: '语言' },
   'settings.signOut': { en: 'Sign out', zh: '退出登录' },
+  'settings.deleteAccount': { en: 'Delete account', zh: '删除账号' },
+  'settings.deleteAccountTitle': { en: 'Delete account?', zh: '删除账号？' },
+  'settings.deleteAccountMessage': {
+    en: 'This permanently deletes your account and all your shifts and workplaces. This cannot be undone.',
+    zh: '将永久删除你的账号以及所有班次和工作单位，此操作无法撤销。',
+  },
+  'settings.deleteAccountFailed': {
+    en: 'Could not delete your account. Please try again.',
+    zh: '删除账号失败，请重试。',
+  },
   'settings.signOutTitle': { en: 'Sign out?', zh: '退出登录？' },
   'settings.signOutMessage': {
     en: 'You will need to sign in again to access your shifts.',
