@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback } from 'react';
 
-import { useAuth, useI18n, useProfile } from '@timesheetai/shared';
+import { useAuth, useI18n, useProfile, useSupabase } from '@timesheetai/shared';
 import type { Language } from '@timesheetai/shared';
 
 import { Card } from '@/components/ui/Card';
@@ -45,6 +45,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t, language, setLanguage } = useI18n();
+  const supabase = useSupabase();
   const { user, signOut } = useAuth();
   const { profile, loading, refetch, updateProfile } = useProfile(user?.id ?? null);
 
@@ -64,6 +65,25 @@ export default function SettingsScreen() {
     Alert.alert(t('settings.signOutTitle'), t('settings.signOutMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('settings.signOut'), style: 'destructive', onPress: signOut },
+    ]);
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(t('settings.deleteAccountTitle'), t('settings.deleteAccountMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.deleteAccount'),
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.rpc('delete_user');
+          if (error) {
+            Alert.alert(t('settings.deleteAccountFailed'));
+            return;
+          }
+          // Account is gone — clear the now-invalid local session.
+          await signOut();
+        },
+      },
     ]);
   };
 
@@ -158,6 +178,12 @@ export default function SettingsScreen() {
                 label={t('settings.signOut')}
                 tone="danger"
                 onPress={confirmSignOut}
+              />
+              <SettingRow
+                icon="trash-2"
+                label={t('settings.deleteAccount')}
+                tone="danger"
+                onPress={confirmDeleteAccount}
                 isLast
               />
             </Card>
