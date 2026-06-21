@@ -32,14 +32,15 @@ const REMINDER_OPTIONS: { key: string; value: number }[] = [
   { key: 'settings.reminder120', value: 120 },
 ];
 
-// Optional earlier second reminder. null = off.
-const EARLY_REMINDER_OPTIONS: { key: string; value: number | null }[] = [
-  { key: 'settings.earlyOff', value: null },
+// Second reminder timing options (no "off" — the toggle handles on/off).
+const EARLY_REMINDER_OPTIONS: { key: string; value: number }[] = [
   { key: 'settings.early2h', value: 120 },
   { key: 'settings.early3h', value: 180 },
   { key: 'settings.early5h', value: 300 },
   { key: 'settings.early1d', value: 1440 },
 ];
+
+const EARLY_DEFAULT = 120; // 2h, used when the second-reminder toggle turns on
 
 // Each language is always shown in its own script, never translated.
 const LANGUAGE_OPTIONS: { label: string; value: Language }[] = [
@@ -65,8 +66,19 @@ export default function SettingsScreen() {
   };
 
   const formatEarlyReminder = (minutes: number | null | undefined): string => {
-    const opt = EARLY_REMINDER_OPTIONS.find((o) => o.value === (minutes ?? null));
-    return t(opt ? opt.key : 'settings.earlyOff');
+    const opt = EARLY_REMINDER_OPTIONS.find((o) => o.value === minutes);
+    return opt ? t(opt.key) : '';
+  };
+
+  const firstReminderOn = profile?.first_reminder_enabled ?? true;
+  const secondReminderOn = (profile?.early_reminder_minutes_before ?? null) !== null;
+
+  const toggleFirstReminder = (value: boolean) => {
+    updateProfile({ first_reminder_enabled: value });
+  };
+
+  const toggleSecondReminder = (value: boolean) => {
+    updateProfile({ early_reminder_minutes_before: value ? EARLY_DEFAULT : null });
   };
 
   useFocusEffect(
@@ -249,20 +261,49 @@ export default function SettingsScreen() {
                 }
               />
               <SettingRow
-                icon="clock"
-                label={t('settings.reminderTiming')}
-                value={formatReminder(profile?.notification_minutes_before ?? 30)}
-                showChevron
-                onPress={pickReminderTiming}
+                icon="bell"
+                label={t('settings.firstReminder')}
+                rightElement={
+                  <Switch
+                    value={firstReminderOn}
+                    onValueChange={toggleFirstReminder}
+                    trackColor={{ false: theme.borderMuted, true: theme.brand }}
+                  />
+                }
               />
+              {firstReminderOn ? (
+                <SettingRow
+                  icon="clock"
+                  label={t('settings.reminderTiming')}
+                  value={formatReminder(profile?.notification_minutes_before ?? 60)}
+                  showChevron
+                  onPress={pickReminderTiming}
+                  inset
+                />
+              ) : null}
               <SettingRow
                 icon="bell"
-                label={t('settings.earlyReminder')}
-                value={formatEarlyReminder(profile?.early_reminder_minutes_before)}
-                showChevron
-                onPress={pickEarlyReminder}
-                isLast
+                label={t('settings.secondReminder')}
+                rightElement={
+                  <Switch
+                    value={secondReminderOn}
+                    onValueChange={toggleSecondReminder}
+                    trackColor={{ false: theme.borderMuted, true: theme.brand }}
+                  />
+                }
+                isLast={!secondReminderOn}
               />
+              {secondReminderOn ? (
+                <SettingRow
+                  icon="clock"
+                  label={t('settings.reminderTiming')}
+                  value={formatEarlyReminder(profile?.early_reminder_minutes_before)}
+                  showChevron
+                  onPress={pickEarlyReminder}
+                  inset
+                  isLast
+                />
+              ) : null}
             </Card>
           </Stack>
 
@@ -303,6 +344,7 @@ type SettingRowProps = {
   tone?: 'default' | 'danger';
   isFirst?: boolean;
   isLast?: boolean;
+  inset?: boolean;
   onPress?: () => void;
 };
 
@@ -314,6 +356,7 @@ function SettingRow({
   rightElement,
   tone = 'default',
   isLast,
+  inset,
   onPress,
 }: SettingRowProps) {
   const theme = useTheme();
@@ -324,6 +367,7 @@ function SettingRow({
       <View
         style={[
           styles.settingRow,
+          inset && { paddingLeft: spacing.xl + spacing.lg, backgroundColor: theme.surfaceMuted },
           !isLast && {
             borderBottomColor: theme.borderMuted,
             borderBottomWidth: StyleSheet.hairlineWidth,
