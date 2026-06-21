@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,11 +26,18 @@ import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
 const LAST_ORG_KEY = 'timesheetai_last_org_id';
+const CUSTOM = '__custom__';
+const CUSTOM_SAVE_COLOR = '#367BFD';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 const dateOnly = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const timeOnly = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+const fmtMoney = (n: number): string => {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2);
+};
 
 const defaultStart = () => {
   const d = new Date();
@@ -49,17 +57,37 @@ const parseInitialDate = (raw: string | undefined): Date => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
+// Hours between start and end, accounting for overnight (end on the next day).
+const durationHours = (start: Date, end: Date, overnight: boolean): number => {
+  const s = new Date();
+  s.setHours(start.getHours(), start.getMinutes(), 0, 0);
+  const e = new Date(s);
+  e.setHours(end.getHours(), end.getMinutes(), 0, 0);
+  if (overnight || e.getTime() <= s.getTime()) e.setDate(e.getDate() + 1);
+  return (e.getTime() - s.getTime()) / 3600000;
+};
+
 export default function AddShiftScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { t } = useI18n();
   const params = useLocalSearchParams<{ date?: string }>();
   const { user } = useAuth();
-  const { organizations, loading: orgsLoading } = useOrganizations(user?.id ?? null);
+  const { organizations, loading: orgsLoading, createOrganization } = useOrganizations(
+    user?.id ?? null,
+  );
   const { createShift } = useShifts({ userId: user?.id ?? null });
 
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [customIncomeText, setCustomIncomeText] = useState('');
   const [date, setDate] = useState<Date>(() => parseInitialDate(params.date));
+  const [overnight, setOvernight] = useState(false);
+  const [startTime, setStartTime] = useState<Date>(defaultStart);
+  const [endTime, setEndTime] = useState<Date>(defaultEnd);
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Pre-select a workplace: the one used for the last shift (remembered in
   // AsyncStorage), falling back to the most recently added workplace. Saves a
@@ -77,22 +105,34 @@ export default function AddShiftScreen() {
       cancelled = true;
     };
   }, [organizations, orgId]);
-  const [overnight, setOvernight] = useState(false);
-  const [startTime, setStartTime] = useState<Date>(defaultStart);
-  const [endTime, setEndTime] = useState<Date>(defaultEnd);
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const isCustom = orgId === CUSTOM;
+  const selectedOrg = organizations.find((o) => o.id === orgId);
+  const rate = selectedOrg ? Number(selectedOrg.hourly_rate) : 0;
+
+  const hours = durationHours(startTime, endTime, overnight);
+  const parsedCustom = customIncomeText.trim() ? Number(customIncomeText) : null;
+  const customIncome =
+    parsedCustom != null && Number.isFinite(parsedCustom) && parsedCustom >= 0 ? parsedCustom : null;
+  const estimatedIncome = customIncome != null ? customIncome : hours * rate;
 
   const onSubmit = async () => {
     setError(null);
 
-    if (!orgId) {
+    if (isCustom) {
+      if (!customName.trim()) {
+        setError(t('shift.enterName'));
+        return;
+      }
+    } else if (!orgId) {
       setError(t('shift.pickWorkplace'));
       return;
     }
+    if (customIncomeText.trim() && customIncome == null) {
+      setError(t('shift.invalidIncome'));
+      return;
+    }
 
-    const org = organizations.find((o) => o.id === orgId);
     const endDateValue = overnight
       ? (() => {
           const next = new Date(date);
@@ -100,24 +140,41 @@ export default function AddShiftScreen() {
           return dateOnly(next);
         })()
       : null;
+
     setSubmitting(true);
     const result = await createShift({
-      organization_id: orgId,
-      title: org?.name ?? 'Shift',
+      organization_id: isCustom ? null : orgId,
+      title: isCustom ? customName.trim() : selectedOrg?.name ?? 'Shift',
       date: dateOnly(date),
       end_date: endDateValue,
       start_time: timeOnly(startTime),
       end_time: timeOnly(endTime),
       notes: notes.trim() || null,
+      custom_income: customIncome,
     });
     setSubmitting(false);
 
-    if (result) {
-      // Remember this workplace so the next shift pre-selects it.
-      AsyncStorage.setItem(LAST_ORG_KEY, orgId).catch(() => {});
-      router.back();
-    } else {
+    if (!result) {
       setError(t('shift.couldNotSave'));
+      return;
+    }
+
+    if (isCustom) {
+      // Offer to keep this one-off workplace for reuse.
+      const name = customName.trim();
+      Alert.alert(t('shift.saveCustomTitle'), t('shift.saveCustomMessage'), [
+        { text: t('shift.saveCustomNo'), style: 'cancel', onPress: () => router.back() },
+        {
+          text: t('shift.saveCustomYes'),
+          onPress: async () => {
+            await createOrganization({ name, color: CUSTOM_SAVE_COLOR, hourly_rate: 0 });
+            router.back();
+          },
+        },
+      ]);
+    } else {
+      if (orgId) AsyncStorage.setItem(LAST_ORG_KEY, orgId).catch(() => {});
+      router.back();
     }
   };
 
@@ -147,17 +204,6 @@ export default function AddShiftScreen() {
                 <Type variant="caption" tone="muted">
                   {t('common.loading')}
                 </Type>
-              ) : organizations.length === 0 ? (
-                <Pressable
-                  onPress={() => {
-                    router.back();
-                    setTimeout(() => router.push('/add-workplace'), 100);
-                  }}
-                  style={[styles.emptyOrgs, { borderColor: theme.border }]}>
-                  <Type variant="bodyMedium" tone="muted">
-                    {t('shift.addWorkplaceFirst')}
-                  </Type>
-                </Pressable>
               ) : (
                 <Stack gap="sm">
                   {organizations.map((org) => {
@@ -191,9 +237,37 @@ export default function AddShiftScreen() {
                       </Pressable>
                     );
                   })}
+
+                  {/* Custom (one-off) workplace */}
+                  <Pressable
+                    onPress={() => setOrgId(CUSTOM)}
+                    style={[
+                      styles.orgRow,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: isCustom ? theme.text : theme.border,
+                        borderStyle: 'dashed',
+                      },
+                    ]}>
+                    <Row gap="md" style={{ flex: 1 }}>
+                      <Feather name="plus-circle" size={16} color={theme.textMuted} />
+                      <Type variant="bodyMedium">{t('shift.customWorkplace')}</Type>
+                    </Row>
+                    {isCustom && <Feather name="check" size={16} color={theme.text} />}
+                  </Pressable>
                 </Stack>
               )}
             </Stack>
+
+            {isCustom ? (
+              <TextField
+                label={t('shift.customName')}
+                value={customName}
+                onChangeText={setCustomName}
+                placeholder={t('shift.customNamePlaceholder')}
+                autoFocus
+              />
+            ) : null}
 
             <DateTimeField label={t('shift.date')} value={date} onChange={setDate} mode="date" />
 
@@ -230,6 +304,23 @@ export default function AddShiftScreen() {
               />
             </Row>
 
+            {/* Income: estimated from time, or the custom amount when entered */}
+            <Stack gap="sm">
+              <Row justify="space-between" align="center">
+                <Type variant="micro" tone="muted">
+                  {t('shift.estIncome')}
+                </Type>
+                <Type variant="h3">${fmtMoney(estimatedIncome)}</Type>
+              </Row>
+              <TextField
+                label={t('shift.customIncome')}
+                value={customIncomeText}
+                onChangeText={setCustomIncomeText}
+                placeholder={isCustom ? '0.00' : fmtMoney(hours * rate)}
+                keyboardType="decimal-pad"
+              />
+            </Stack>
+
             <TextField
               label={t('shift.notes')}
               value={notes}
@@ -244,12 +335,7 @@ export default function AddShiftScreen() {
               </Type>
             ) : null}
 
-            <Button
-              label={t('shift.save')}
-              onPress={onSubmit}
-              loading={submitting}
-              disabled={organizations.length === 0}
-            />
+            <Button label={t('shift.save')} onPress={onSubmit} loading={submitting} />
           </Stack>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -284,12 +370,5 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  emptyOrgs: {
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
-    alignItems: 'center',
   },
 });

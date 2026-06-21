@@ -207,6 +207,20 @@ export const translations: Translations = {
   'shift.pickWorkplace': { en: 'Pick a workplace', zh: '请选择工作单位' },
   'shift.couldNotSave': { en: 'Could not save shift', zh: '保存班次失败' },
   'shift.couldNotSaveChanges': { en: 'Could not save changes', zh: '保存修改失败' },
+  'shift.customWorkplace': { en: 'Custom workplace', zh: '自定义工作单位' },
+  'shift.customName': { en: 'Workplace name', zh: '工作单位名称' },
+  'shift.customNamePlaceholder': { en: 'e.g. One-off gig', zh: '例如：临时工' },
+  'shift.estIncome': { en: 'Est. income (AUD)', zh: '预计收入（澳元）' },
+  'shift.customIncome': { en: 'Custom income (optional)', zh: '自定义收入（可选）' },
+  'shift.enterName': { en: 'Enter a workplace name', zh: '请输入工作单位名称' },
+  'shift.invalidIncome': { en: 'Enter a valid amount', zh: '请输入有效金额' },
+  'shift.saveCustomTitle': { en: 'Save as workplace?', zh: '保存为工作单位？' },
+  'shift.saveCustomMessage': {
+    en: 'Save this custom workplace so you can pick it next time?',
+    zh: '把这个自定义工作单位保存下来，下次直接选择？',
+  },
+  'shift.saveCustomYes': { en: 'Save', zh: '保存' },
+  'shift.saveCustomNo': { en: "Don't save", zh: '不保存' },
   'shift.couldNotDelete': { en: 'Could not delete shift', zh: '删除班次失败' },
 
   // Settings (mobile)
