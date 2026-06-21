@@ -251,3 +251,53 @@ Most product iteration after launch is `eas update`. Reserve `eas build` for gen
 - 2FA must be enabled on the Apple ID before enrollment — won't let you submit otherwise.
 - Bundle ID is permanent: once first submission is associated with an ASC record, it can't be changed.
 - App Store Connect numeric "app ID" (`ascAppId` in eas.json) is the digits in the URL after `apps/`. Find via App Store Connect → My Apps → click app → URL bar.
+
+---
+
+## 14. Expo native modules: ALWAYS `expo install`, never `npm/pnpm install`
+
+This one cost two wasted production builds and a baffling crash loop.
+
+- `expo-updates` was added with plain `npm install expo-updates`, which grabbed the **latest major (`^56`)** — incompatible with Expo SDK 54, which wants `~29`. The mismatched native module + JS interface **segfaulted Hermes on the JS thread** (`EXC_BAD_ACCESS` / SIGSEGV on `com.facebook.react.runtime.JavaScript`).
+- **It was invisible in dev and in `tsc`.** It only crashed in a release build. Build 3 didn't crash (nothing called the module at launch); build 4 crashed instantly because launch-time code called `Updates.checkForUpdateAsync()`.
+- **Always add Expo/native deps with `expo install <pkg>`** (or `npx expo install`) so the version matches the SDK. After any dep change, run **`npx expo install --check`** — it flags version mismatches. The Metro startup log also prints "should be updated for best compatibility" warnings — don't ignore them.
+- **Reading a release crash:** on the device, Settings → Privacy & Security → Analytics & Improvements → Analytics Data → find `TimesheetAI-<date>.ips`. Parse the `.ips` (first line = header JSON, rest = body JSON); `exceptionType`/`faultingThread` + the faulting thread's frames tell you JS-thread vs native and whether Hermes is in the stack.
+
+## 15. This machine's IPv6 is broken — force IPv4 for eas-cli
+
+`eas build` / `eas submit` / `eas update` would hang with `Client network socket disconnected before secure TLS connection` or `Failed to fetch (api.supabase.com)`.
+- Cause: the local network's IPv6 routing is dead, and Node (eas-cli) prefers IPv6. `curl` to `api.expo.dev` over IPv6 times out; over IPv4 (`curl -4`) it responds in 0.3s.
+- **Fix:** prefix every eas/supabase-CLI command with `NODE_OPTIONS="--dns-result-order=ipv4first"`. The Supabase web SQL editor hitting the same wall is the same root cause (retry / switch network).
+
+## 16. First production build & submit need interactive Apple 2FA; after that, non-interactive
+
+- The **first** `eas build --profile production` must run interactively: it logs into Apple, runs 2FA, and creates the App Store distribution cert + provisioning profile. You cannot do this headless.
+- If the Keychain holds a **stale Apple ID password** (you changed it), the login fails with "Invalid username and password" — re-enter the current iCloud password (NOT the Expo password — two different accounts).
+- The **first** `eas submit` likewise creates an App Store Connect **API key** interactively. Pick **App Manager** role (least privilege; Admin works but is more than needed).
+- Once cert + profile + ASC API key are stored on EAS servers, **all subsequent builds and submits run with `--non-interactive`**.
+- Re-submitting an already-submitted buildNumber fails ("Something went wrong") — harmless, it's already up.
+
+## 17. App Store review blockers you must clear BEFORE public submit (TestFlight is laxer)
+
+- **In-app account deletion is mandatory** (Guideline 5.1.1(v)) for any app with account creation. Implement via a `SECURITY DEFINER` SQL function the user calls (`delete_user()` → `delete from auth.users where id = auth.uid()`); every table cascades off `profiles → auth.users`, so one delete wipes everything. Grant execute to `authenticated` only.
+- **Privacy policy must match reality** — ours wrongly said data was in US-East when the DB is in Seoul (`ap-northeast-2`). Apple checks; an inaccurate cross-border disclosure is a real gap. (Note: Australia has no data-residency law for ordinary apps — overseas storage is fine **if disclosed**.)
+- **Support URL / email must be real and reachable** — a placeholder like `support@a-domain-you-dont-own.app` will bounce.
+- **Reviewers can't receive your SMS** — if a feature needs phone verification, either pre-set the demo account's `phone_verified=true` (with a number you control) or explain in the App Review notes.
+- **TestFlight internal testing needs NO review**; external testing (friends, ≤10k) needs one light **Beta App Review** (~1 day).
+
+## 18. Reuse a deployed web API from the mobile app via Bearer auth
+
+To let mobile reuse web's already-working API routes (we did this for phone verification instead of rebuilding it as an Edge Function):
+- Web routes authenticated only via the **session cookie**. Add a helper that accepts **either** the cookie (browser) **or** an `Authorization: Bearer <supabase access token>` header (app), returning a user-scoped Supabase client either way.
+- The app gets its token from `supabase.auth.getSession()` and sends it as `Authorization: Bearer ...`. Browser behavior is unchanged (browsers send no bearer), so it's purely additive and zero-risk to web.
+
+## 19. DB migration + Edge Function must change in lockstep
+
+The Edge Function calls RPCs that live in the DB. When you change a feature's data shape:
+- If you add a column the Edge Function writes (e.g. `reminder_kind`), you must **both** run the migration **and** redeploy the function (`npx supabase functions deploy <name> --project-ref <ref>`) together — otherwise inserts reference a missing column, or the new RPC returns rows the old function can't record.
+- If you only changed the **RPC definitions** (which run in the DB) and the function code is unchanged, you only need the migration — no redeploy.
+- Deploy doesn't need Docker on recent CLI (the "Docker is not running" warning is harmless — it uses the API bundler). Secrets persist across deploys.
+
+## 20. Nullable foreign keys ripple into both apps' types
+
+Making `shifts.organization_id` nullable (to support one-off "custom" workplaces with no org) flipped `ShiftWithOrganization.organization` to `Organization | null` in the shared types. Mobile was already null-safe (`shift.organization?.x`), but **web** maps DB rows to its own type and broke `tsc` (`string | null` not assignable to `string`). When you loosen a shared type, run `tsc` on **every** consumer (mobile, shared, web) — a shared-package change can break an app that looks unrelated.
