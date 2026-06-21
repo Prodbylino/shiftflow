@@ -24,9 +24,25 @@ import { Type } from '@/components/ui/Type';
 import { radius, spacing } from '@/constants/Theme';
 import { useTheme } from '@/components/useTheme';
 
+const CUSTOM = '__custom__';
+
 const pad = (n: number) => String(n).padStart(2, '0');
 const dateOnly = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const timeOnly = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+const fmtMoney = (n: number): string => {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2);
+};
+
+const durationHours = (start: Date, end: Date, overnight: boolean): number => {
+  const s = new Date();
+  s.setHours(start.getHours(), start.getMinutes(), 0, 0);
+  const e = new Date(s);
+  e.setHours(end.getHours(), end.getMinutes(), 0, 0);
+  if (overnight || e.getTime() <= s.getTime()) e.setDate(e.getDate() + 1);
+  return (e.getTime() - s.getTime()) / 3600000;
+};
 
 const parseDate = (iso: string) => new Date(iso + 'T00:00:00');
 const parseTime = (hms: string) => {
@@ -48,6 +64,8 @@ export default function ShiftDetailScreen() {
   const shift = shifts.find((s) => s.id === id);
 
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [customName, setCustomName] = useState('');
+  const [customIncomeText, setCustomIncomeText] = useState('');
   const [date, setDate] = useState<Date>(new Date());
   const [overnight, setOvernight] = useState(false);
   const [startTime, setStartTime] = useState<Date>(new Date());
@@ -60,7 +78,11 @@ export default function ShiftDetailScreen() {
 
   useEffect(() => {
     if (shift && !hydrated) {
-      setOrgId(shift.organization_id);
+      // No organization → this is a custom (one-off) workplace; its name lives
+      // in the shift title.
+      setOrgId(shift.organization_id ?? CUSTOM);
+      setCustomName(shift.organization_id ? '' : shift.title);
+      setCustomIncomeText(shift.custom_income != null ? String(shift.custom_income) : '');
       setDate(parseDate(shift.date));
       setOvernight(!!shift.end_date && shift.end_date !== shift.date);
       setStartTime(parseTime(shift.start_time));
@@ -89,10 +111,28 @@ export default function ShiftDetailScreen() {
     );
   }
 
+  const isCustom = orgId === CUSTOM;
+  const selectedOrg = organizations.find((o) => o.id === orgId);
+  const rate = selectedOrg ? Number(selectedOrg.hourly_rate) : 0;
+  const hours = durationHours(startTime, endTime, overnight);
+  const parsedCustom = customIncomeText.trim() ? Number(customIncomeText) : null;
+  const customIncome =
+    parsedCustom != null && Number.isFinite(parsedCustom) && parsedCustom >= 0 ? parsedCustom : null;
+  const estimatedIncome = customIncome != null ? customIncome : hours * rate;
+
   const onSave = async () => {
     setError(null);
-    if (!orgId) {
+    if (isCustom) {
+      if (!customName.trim()) {
+        setError(t('shift.enterName'));
+        return;
+      }
+    } else if (!orgId) {
       setError(t('shift.pickWorkplace'));
+      return;
+    }
+    if (customIncomeText.trim() && customIncome == null) {
+      setError(t('shift.invalidIncome'));
       return;
     }
     const endDateValue = overnight
@@ -104,12 +144,14 @@ export default function ShiftDetailScreen() {
       : null;
     setSubmitting(true);
     const ok = await updateShift(shift.id, {
-      organization_id: orgId,
+      organization_id: isCustom ? null : orgId,
+      title: isCustom ? customName.trim() : selectedOrg?.name ?? shift.title,
       date: dateOnly(date),
       end_date: endDateValue,
       start_time: timeOnly(startTime),
       end_time: timeOnly(endTime),
       notes: notes.trim() || null,
+      custom_income: customIncome,
     });
     setSubmitting(false);
     if (ok) {
@@ -193,8 +235,34 @@ export default function ShiftDetailScreen() {
                     </Pressable>
                   );
                 })}
+
+                <Pressable
+                  onPress={() => setOrgId(CUSTOM)}
+                  style={[
+                    styles.orgRow,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: isCustom ? theme.text : theme.border,
+                      borderStyle: 'dashed',
+                    },
+                  ]}>
+                  <Row gap="md" style={{ flex: 1 }}>
+                    <Feather name="plus-circle" size={16} color={theme.textMuted} />
+                    <Type variant="bodyMedium">{t('shift.customWorkplace')}</Type>
+                  </Row>
+                  {isCustom && <Feather name="check" size={16} color={theme.text} />}
+                </Pressable>
               </Stack>
             </Stack>
+
+            {isCustom ? (
+              <TextField
+                label={t('shift.customName')}
+                value={customName}
+                onChangeText={setCustomName}
+                placeholder={t('shift.customNamePlaceholder')}
+              />
+            ) : null}
 
             <DateTimeField label={t('shift.date')} value={date} onChange={setDate} mode="date" />
 
@@ -230,6 +298,22 @@ export default function ShiftDetailScreen() {
                 trackColor={{ false: theme.borderMuted, true: theme.brand }}
               />
             </Row>
+
+            <Stack gap="sm">
+              <Row justify="space-between" align="center">
+                <Type variant="micro" tone="muted">
+                  {t('shift.estIncome')}
+                </Type>
+                <Type variant="h3">${fmtMoney(estimatedIncome)}</Type>
+              </Row>
+              <TextField
+                label={t('shift.customIncome')}
+                value={customIncomeText}
+                onChangeText={setCustomIncomeText}
+                placeholder={isCustom ? '0.00' : fmtMoney(hours * rate)}
+                keyboardType="decimal-pad"
+              />
+            </Stack>
 
             <TextField
               label={t('shift.notes')}

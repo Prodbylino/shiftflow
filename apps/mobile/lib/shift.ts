@@ -17,4 +17,8 @@ export const shiftDurationHours = (shift: ShiftWithOrganization): number => {
 };
 
 export const shiftEarnings = (shift: ShiftWithOrganization): number =>
-  shiftDurationHours(shift) * (shift.organization?.hourly_rate ?? 0);
+  // A manual custom_income overrides the time×rate estimate (flat-rate / custom
+  // workplace shifts). Otherwise hours × the workplace's hourly rate.
+  shift.custom_income != null
+    ? Number(shift.custom_income)
+    : shiftDurationHours(shift) * (shift.organization?.hourly_rate ?? 0);

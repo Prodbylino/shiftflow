@@ -61,7 +61,8 @@ export default function DashboardPage() {
       id: s.id,
       date: new Date(s.date),
       endDate: s.end_date ? new Date(s.end_date) : new Date(s.date),
-      organizationId: s.organization_id,
+      // Custom (no-org) shifts are mobile-only for now; web shows them title-only.
+      organizationId: s.organization_id ?? '',
       startTime: s.start_time,
       endTime: s.end_time,
       description: s.notes || undefined,

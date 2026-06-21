@@ -92,39 +92,42 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          organization_id: string
+          organization_id: string | null
           title: string
           date: string
           end_date: string | null
           start_time: string
           end_time: string
           notes: string | null
+          custom_income: number | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          organization_id: string
+          organization_id?: string | null
           title: string
           date: string
           end_date?: string | null
           start_time: string
           end_time: string
           notes?: string | null
+          custom_income?: number | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          organization_id?: string
+          organization_id?: string | null
           title?: string
           date?: string
           end_date?: string | null
           start_time?: string
           end_time?: string
           notes?: string | null
+          custom_income?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -330,7 +333,8 @@ export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 export type OrganizationUpdate = Database['public']['Tables']['organizations']['Update']
 export type ShiftUpdate = Database['public']['Tables']['shifts']['Update']
 
-// Shift with organization info (joined)
+// Shift with organization info (joined). organization is null for one-off
+// "custom" workplaces (the name lives in shift.title).
 export type ShiftWithOrganization = Shift & {
-  organization: Organization
+  organization: Organization | null
 }
